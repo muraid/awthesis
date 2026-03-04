@@ -7,7 +7,11 @@ let settings = storage.readJSON("mobistudy.json", 1) || {
     interval: 10,
     vibration: true,
     accelerometer: true,
-    gyroscope: true
+    gyroscope: true,
+    heartRate: true,
+    filename: "mobistudy_log.csv",
+    continuous: false,
+    sporadic: false
 };
 
 function saveSettings() {
@@ -81,11 +85,47 @@ function showSensorsMenu() {
                 settings.heartRate = v; 
                 saveSettings();
             }
+        },
+        "Filename": {
+            value: settings.filename,
+            onchange: v => {
+                settings.filename = v;
+                saveSettings();
+            }   
+        },
+         "Type of data collection": {
+            onchange: () => dataCollectionType()
         }
 
     };
     E.showMenu(menu);
 }
+
+
+function dataCollectionType() {
+    const menu = {
+        "": { "title": "Type of data collection" },
+        "< Back": function() { showSensorsMenu(); },
+
+    "Continuous": {
+            value: settings.continuous,
+            onchange: v => {
+                settings.continuous = v;
+                saveSettings();
+            }
+    },
+    "Sporadic": {
+        value: settings.sporadic,
+        onchange: v => {
+            settings.sporadic = v;
+            saveSettings();
+        }
+    }
+
+    };
+    E.showMenu(menu);
+}
+
 
 function showSettingsMenu() {
     const menu = {
@@ -98,7 +138,7 @@ function showSettingsMenu() {
                 settings.bluetooth = v; 
                 saveSettings();
             }
-},
+        },
         "Display": { //change display settings such as brightness and timeout
             value: settings.display,
             onchange: v => {    
@@ -113,8 +153,23 @@ function showSettingsMenu() {
                 saveSettings();
             }
         },
+        "Firmware update": {
+            value: settings.firmwareup,
+            onchange: v => {
+                settings.firmwareup = v; 
+                saveSettings();
+            }
+        },
+        "Reset settings": {
+            value: settings.resetsettings,
+            onchange: v => {
+                settings.resetsettings = v; 
+                saveSettings();
+            }
+        }
        
-    };    E.showMenu(menu);
+    };    
+    E.showMenu(menu);
 }
 
 function showParticipantMenu() {
@@ -141,9 +196,51 @@ function showParticipantMenu() {
                 settings.participantGender = v;
                 saveSettings();
             }
+        },
+        "Session": {
+            value: settings.session || "",
+            onchange: v => {
+                settings.session = v;
+                saveSettings();
+            }
         }
     };
     E.showMenu(menu);
 }
+
+function showTimedTestsMenu() {
+    const menu = {
+        "": { "title": "Timed tests" },
+        "< Back": function() { showStartMenu(); }, 
+
+        "6MWT": {
+            value: settings.walkingtest,
+            onchange: v => {
+                settings.walkingtest = v; 
+                saveSettings();
+            }
+        },
+        "Timed up and go": {
+            value: settings.upandgo,
+            onchange: v => {
+                settings.upandgo = v; 
+                saveSettings();
+            }
+        }
+    };
+    E.showMenu(menu);
+}
+
+function showEMAMenu() {
+    const menu = {
+        "": { "title": "EMA" },
+        "< Back": function() { showStartMenu(); },
+
+    };
+    E.showMenu(menu);
+
+}
+
+
 showStartMenu();
  showSettingsMenu();
