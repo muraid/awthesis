@@ -3,6 +3,7 @@ Bangle.drawWidgets();
 
 const storage = require("Storage");
 
+//code from innovation course 
 const config = {
   filename: settings.filename || "mobistudy.bin",
   samplingPeriod: settings.interval, 
@@ -17,6 +18,7 @@ let accelSamples = 0;
 let hr = 0;
 let hrConfidence = 0;
 let isMeasuring = false;
+//code from innovation course 
 
 
 let settings = storage.readJSON("mobistudy.json", 1) || {
