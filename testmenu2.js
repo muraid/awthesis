@@ -90,42 +90,59 @@ function measureHR() {
 }
 
 // ---------------- DATA COLLECTION ----------------
-
 function startCollection() {
-  if (isCollecting) return;
 
-  isCollecting = true;
-  E.showMessage("Samlar data...", "Mobistudy");
+  const menu = {
+    "": { "title": "Timed tests" },
 
-  // Aktivera valda sensorer
-  if (settings.sensors.includes("steps")) enableStepSensor();
-  if (settings.sensors.includes("accel")) enableAccelSensor();
+    "< Back": () => {
+      stopCollection();
+      showStartMenu();
+    },
 
-  intervalID = setInterval(() => {
-    let ts = Math.round(Date.now() / 1000);
-    let batt = E.getBattery();
+    "Start": () => {
+      if (isCollecting) return;
 
-    let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
-    let accelByte = Math.min(255, Math.round(accelAvg * 100));
+      isCollecting = true;
+      E.showMessage("Samlar data...", "Mobistudy");
 
-    appendRow(
-      ts,
-      settings.sensors.includes("steps") ? currentStepCount : null,
-      settings.sensors.includes("accel") ? accelByte : null,
-      settings.sensors.includes("hr") ? hr : null,
-      settings.sensors.includes("hr") ? hrConfidence : null,
-      batt
-    );
+      // Aktivera valda sensorer
+      if (settings.sensors.includes("steps")) enableStepSensor();
+      if (settings.sensors.includes("accel")) enableAccelSensor();
+      if (settings.sensors.includes("hr")) enableHeartRateSensor();
 
-    // Reset
-    currentStepCount = 0;
-    accelSum = 0;
-    accelSamples = 0;
+      // Starta periodic logging
+      intervalID = setInterval(() => {
+        let ts = Math.round(Date.now() / 1000);
+        let batt = E.getBattery();
 
-    if (settings.sensors.includes("hr")) measureHR();
+        let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
+        let accelByte = Math.min(255, Math.round(accelAvg * 100));
 
-  }, settings.interval * 1000);
+        appendRow(
+          ts,
+          settings.sensors.includes("steps") ? currentStepCount : null,
+          settings.sensors.includes("accel") ? accelByte : null,
+          settings.sensors.includes("hr") ? hr : null,
+          settings.sensors.includes("hr") ? hrConfidence : null,
+          batt
+        );
+
+        // Reset
+        currentStepCount = 0;
+        accelSum = 0;
+        accelSamples = 0;
+
+        if (settings.sensors.includes("hr")) measureHR();
+
+      }, settings.interval * 1000);
+    }
+  };
+
+  E.showMenu(menu);
 }
+
+
 
 function stopCollection() {
   if (!isCollecting) return;
