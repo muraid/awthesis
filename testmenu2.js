@@ -179,7 +179,7 @@ Bluetooth.on("data", d => {
 function showMainMenu() {
   E.showMenu({
     "": { title: "Mobistudy" },
-    "< Tillbaka": () => load(),
+    
 
     "Start": () => startCollection(),
     "Stop": () => stopCollection(),

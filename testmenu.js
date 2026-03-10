@@ -4,11 +4,7 @@ Bangle.drawWidgets();
 const storage = require("Storage");
 
 //code from innovation course 
-const config = {
-  filename: settings.filename || "mobistudy.bin",
-  samplingPeriod: settings.interval, 
-  bytesPerStepCount: 1
-};
+
 const bytesPerRow = 10;
 const totalFileLen = 28800;
 
@@ -32,6 +28,12 @@ let settings = storage.readJSON("mobistudy.json", 1) || {
     filename: "mobistudy_log.csv",
     continuous: false,
     sporadic: false
+};
+
+const config = {
+  filename: settings.filename || "mobistudy.bin",
+  samplingPeriod: settings.interval, 
+  bytesPerStepCount: 1
 };
 
 function saveSettings() {
@@ -83,7 +85,6 @@ function startDataCollection(){
     accelSum += Math.abs(a.mag - 1);
     accelSamples++;
     });
-
 
 // ---- HEART RATE ----
 function measureHR() {
