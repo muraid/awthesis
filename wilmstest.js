@@ -25,7 +25,6 @@ let settings = storage.readJSON("mobistudy.json", 1) || {
     interval: 10,
     vibration: true,
     accelerometer: true,
-    gyroscope: true,
     heartRate: true,
     filename: "mobistudy_log.csv",
     continuous: false,
@@ -44,17 +43,14 @@ function showStartMenu() {
         "Sensors": {
             onchange: () => showSensorsMenu()
         },
-        "Settings": {
-            onchange: () => showSettingsMenu()
-        },
-        "Participant": {
-            onchange: () => showParticipantMenu()
-        },
         "Timed tests": {
             onchange: () => showTimedTestsMenu()
         },
         "EMA": {
             onchange: () => showEMAMenu()
+        },
+        "Start": {
+             onchange: () => startDataCollection()
         }
     };
     E.showMenu(menu);
@@ -74,26 +70,11 @@ function showSensorsMenu() {
                 settings.interval = v;
                 saveSettings();
             }
-},
-        "Vibration": { // change so we can control time and intensity of vibration
-            value: settings.vibration,
-            onchange: v => {
-                settings.vibration = v; 
-                saveSettings();
-            }
         },
-
         "Accelerometer": {
             value: settings.accelerometer,
             onchange: v => {
                 settings.accelerometer = v; 
-                saveSettings();
-            }
-        },
-        "Gyroscope": {
-            value: settings.gyroscope,
-            onchange: v => {
-                settings.gyroscope = v; 
                 saveSettings();
             }
         },
@@ -145,87 +126,6 @@ function dataCollectionType() {
 }
 
 
-function showSettingsMenu() {
-    const menu = {
-        "": { "title": "Sensors" },
-        "< Back": function() { showStartMenu(); },
-
-        "Bluetooth": { //turn off ability to connect bluetooth to unknown devices, only allow connection to phone app
-            value: settings.bluetooth,
-            onchange: v => {
-                settings.bluetooth = v; 
-                saveSettings();
-            }
-        },
-        "Display": { //change display settings such as brightness and timeout
-            value: settings.display,
-            onchange: v => {    
-                settings.display = v;
-                saveSettings();
-            }
-        },
-        "Sound": { //turn off sound and control volume
-            value: settings.sound,
-            onchange: v => {
-                settings.sound = v; 
-                saveSettings();
-            }
-        },
-        "Firmware update": {
-            value: settings.firmwareup,
-            onchange: v => {
-                settings.firmwareup = v; 
-                saveSettings();
-            }
-        },
-        "Reset settings": {
-            value: settings.resetsettings,
-            onchange: v => {
-                settings.resetsettings = v; 
-                saveSettings();
-            }
-        }
-       
-    };    
-    E.showMenu(menu);
-}
-
-function showParticipantMenu() {
-    const menu = {
-        "": { "title": "Participant" },
-        "< Back": function() { showStartMenu(); },  
-        "ID": {
-            value: settings.participantID || "",
-            onchange: v => {
-                settings.participantID = v;
-                saveSettings();
-            }
-        },
-        "Age": {
-            value: settings.participantAge || "",
-            onchange: v => {
-                settings.participantAge = v;
-                saveSettings();
-            }
-        },  
-        "Gender": {
-            value: settings.participantGender || "",
-            onchange: v => {
-                settings.participantGender = v;
-                saveSettings();
-            }
-        },
-        "Session": {
-            value: settings.session || "",
-            onchange: v => {
-                settings.session = v;
-                saveSettings();
-            }
-        }
-    };
-    E.showMenu(menu);
-}
-
 function showTimedTestsMenu() {
     const menu = {
         "": { "title": "Timed tests" },
@@ -258,6 +158,30 @@ function showEMAMenu() {
     E.showMenu(menu);
 
 }
+
+function startDataCollection() {
+  const menu = {
+    "": { "title": "Timed tests" },
+    "< Back": function() { showStartMenu(); },
+
+    "RECORD": {
+      value: !!settings.recording,
+      onchange: v => {
+        setTimeout(function() {
+          E.showMenu(); // rensa menyn visuellt
+          require("recorder").setRecording(v).then(function() {
+            loadSettings();
+            startDataCollection(); // visa denna meny igen
+          });
+        }, 1);
+      }
+    }
+  };
+
+  E.showMenu(menu);
+}
+
+
 
 
 showStartMenu();
