@@ -181,6 +181,129 @@ function startDataCollection() {
   E.showMenu(menu);
 }
 
+// ---------------- HEART RATE ----------------
+
+function measureHR() {
+  if (isMeasuringHR) return;
+
+  isMeasuringHR = true;
+  let samples = [];
+
+  function onHRM(e) {
+    if (e.confidence > 0 && e.bpm > 0) samples.push(e);
+  }
+
+  Bangle.on("HRM", onHRM);
+  Bangle.setHRMPower(true);
+
+  setTimeout(() => {
+    Bangle.removeListener("HRM", onHRM);
+    Bangle.setHRMPower(false);
+    isMeasuringHR = false;
+
+    if (samples.length === 0) {
+      hr = 0;
+      hrConfidence = 0;
+    } else {
+      let best = samples.reduce((a, b) =>
+        b.confidence > a.confidence ? b : a
+      );
+      hr = best.bpm;
+      hrConfidence = best.confidence;
+    }
+
+  }, 20000);
+}
+
+// ---------------- DATA COLLECTION ----------------
+function startSensors() {
+  // STEP COUNTER
+  Bangle.on("step", s => {
+    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
+    currentStepCount = s - lastTotalStepCount;
+  });
+
+  // ACCELEROMETER
+  Bangle.on("accel", a => {
+    accelSum += Math.abs(a.mag - 1);
+    accelSamples++;
+  });
+}
+
+function stopSensors() {
+  Bangle.removeAllListeners("step");
+  Bangle.removeAllListeners("accel");
+}
+
+function startLogging() {
+  if (dataTimer) clearInterval(dataTimer);
+
+  dataTimer = setInterval(() => {
+    let ts = Math.round(Date.now() / 1000);
+
+    let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
+    let accelByte = Math.min(255, Math.round(accelAvg * 100));
+
+    let batt = E.getBattery();
+
+    appendRow(ts, currentStepCount, accelByte, hr, hrConfidence, batt);
+
+    // reset
+    currentStepCount = 0;
+    accelSum = 0;
+    accelSamples = 0;
+
+    // trigger HR measurement
+    if (settings.heartRate) measureHR();
+
+  }, settings.interval * 1000);
+}
+
+function stopLogging() {
+  if (dataTimer) clearInterval(dataTimer);
+  dataTimer = undefined;
+}
+
+function startDataCollection() {
+
+  const menu = {
+    "": { "title": "Timed tests" },
+    "< Back": () => { 
+      stopLogging();
+      stopSensors();
+      showStartMenu(); 
+    },
+
+    "RECORD": {
+      value: !!settings.recording,
+      onchange: v => {
+        settings.recording = v;
+
+        if (v) {
+          // Start
+          startSensors();
+          startLogging();
+        } else {
+          // Stop
+          stopLogging();
+          stopSensors();
+        }
+
+        // Update recorder module
+        setTimeout(() => {
+          E.showMenu();
+          require("recorder").setRecording(v).then(() => {
+            loadSettings();
+            startDataCollection();
+          });
+        }, 1);
+      }
+    }
+  };
+
+  E.showMenu(menu);
+}
+
 
 
 
