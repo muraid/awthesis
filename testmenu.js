@@ -73,6 +73,55 @@ function showEMAMenu(){
 }
 
 function startDataCollection(){
+    Bangle.on("step", s => {
+    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
+    currentStepCount = s - lastTotalStepCount;
+    });
+
+
+    Bangle.on("accel", a => {
+    accelSum += Math.abs(a.mag - 1);
+    accelSamples++;
+    });
+
+
+// ---- HEART RATE ----
+function measureHR() {
+    if (isMeasuring) return;
+
+
+    isMeasuring = true;
+    let samples = [];
+
+ function onHRM(e) {
+   if (e.confidence > 0 && e.bpm > 0) samples.push(e);
+ }
+
+    Bangle.on("HRM", onHRM);
+    Bangle.setHRMPower(true);
+
+
+    setTimeout(() => {
+    Bangle.removeListener("HRM", onHRM);
+    Bangle.setHRMPower(false);
+    isMeasuring = false;
+
+
+    if (samples.length === 0) {
+        hr = 0;
+        hrConfidence = 0;
+        return;
+    }
+
+    let best = samples.reduce((a, b) =>
+        (b.confidence > a.confidence ? b : a)
+    );
+
+    hr = best.bpm;
+    hrConfidence = best.confidence;
+
+    }, 20000);
+
     let ts = Math.round(Date.now() / 1000);
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
@@ -89,6 +138,7 @@ function startDataCollection(){
 
 
     measureHR();
+ }
 }
 
 
