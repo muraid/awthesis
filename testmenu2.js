@@ -5,30 +5,15 @@ const storage = require("Storage");
 
 // ---------------- SETTINGS ----------------
 
-let settings = storage.readJSON("mobistudy.json", 1) || {
+let settings = {
+  sensors: ["steps", "accel", "hr"], // default
   interval: 10,
-  vibration: true,
-  accelerometer: true,
-  gyroscope: true,
-  heartRate: true,
-  filename: "mobistudy_log.csv",
-  continuous: false,
-  sporadic: false
+  filename: "mobistudy_log.csv"
 };
 
-function saveSettings() {
-  storage.writeJSON("mobistudy.json", settings);
-}
+// ---------------- STATE ----------------
 
-// ---------------- CONFIG ----------------
-
-const config = {
-  filename: settings.filename || "mobistudy.bin",
-  samplingPeriod: settings.interval,
-  bytesPerStepCount: 1
-};
-
-// ---------------- STATE VARIABLES ----------------
+let isCollecting = false;
 
 let lastTotalStepCount = -1;
 let currentStepCount = 0;
@@ -38,25 +23,40 @@ let accelSamples = 0;
 
 let hr = 0;
 let hrConfidence = 0;
-
 let isMeasuringHR = false;
+
+let intervalID = null;
 
 // ---------------- FILE LOGGING ----------------
 
 function appendRow(ts, steps, accel, hr, conf, batt) {
   const line = [
     ts,
-    steps,
-    accel,
-    hr,
-    conf,
+    steps ?? "",
+    accel ?? "",
+    hr ?? "",
+    conf ?? "",
     batt
   ].join(",") + "\n";
 
-  storage.write(config.filename, line, storage.APPEND);
+  storage.write(settings.filename, line, storage.APPEND);
 }
 
-// ---------------- HEART RATE ----------------
+// ---------------- SENSOR HANDLERS ----------------
+
+function enableStepSensor() {
+  Bangle.on("step", s => {
+    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
+    currentStepCount = s - lastTotalStepCount;
+  });
+}
+
+function enableAccelSensor() {
+  Bangle.on("accel", a => {
+    accelSum += Math.abs(a.mag - 1);
+    accelSamples++;
+  });
+}
 
 function measureHR() {
   if (isMeasuringHR) return;
@@ -86,100 +86,121 @@ function measureHR() {
       hr = best.bpm;
       hrConfidence = best.confidence;
     }
-
   }, 20000);
 }
 
 // ---------------- DATA COLLECTION ----------------
 
-function startDataCollection() {
+function startCollection() {
+  if (isCollecting) return;
+
+  isCollecting = true;
   E.showMessage("Samlar data...", "Mobistudy");
 
-  // STEP COUNTER
-  Bangle.on("step", s => {
-    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
-    currentStepCount = s - lastTotalStepCount;
-  });
+  // Aktivera valda sensorer
+  if (settings.sensors.includes("steps")) enableStepSensor();
+  if (settings.sensors.includes("accel")) enableAccelSensor();
 
-  // ACCELEROMETER
-  Bangle.on("accel", a => {
-    accelSum += Math.abs(a.mag - 1);
-    accelSamples++;
-  });
-
-  // PERIODIC LOGGING
-  setInterval(() => {
+  intervalID = setInterval(() => {
     let ts = Math.round(Date.now() / 1000);
+    let batt = E.getBattery();
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
     let accelByte = Math.min(255, Math.round(accelAvg * 100));
 
-    let batt = E.getBattery();
+    appendRow(
+      ts,
+      settings.sensors.includes("steps") ? currentStepCount : null,
+      settings.sensors.includes("accel") ? accelByte : null,
+      settings.sensors.includes("hr") ? hr : null,
+      settings.sensors.includes("hr") ? hrConfidence : null,
+      batt
+    );
 
-    appendRow(ts, currentStepCount, accelByte, hr, hrConfidence, batt);
-
-    // reset
+    // Reset
     currentStepCount = 0;
     accelSum = 0;
     accelSamples = 0;
 
-    // trigger HR measurement
-    if (settings.heartRate) measureHR();
+    if (settings.sensors.includes("hr")) measureHR();
 
   }, settings.interval * 1000);
 }
 
-// ---------------- MENUS ----------------
+function stopCollection() {
+  if (!isCollecting) return;
 
-function showStartMenu() {
-  const menu = {
+  isCollecting = false;
+  clearInterval(intervalID);
+  intervalID = null;
+
+  Bangle.removeAllListeners("step");
+  Bangle.removeAllListeners("accel");
+  Bangle.removeAllListeners("HRM");
+  Bangle.setHRMPower(false);
+
+  E.showMessage("Stoppad", "Mobistudy");
+}
+
+// ---------------- BLUETOOTH COMMANDS ----------------
+
+Bluetooth.on("data", d => {
+  d = d.trim();
+
+  if (d.startsWith("SET SENSORS:")) {
+    try {
+      let json = d.replace("SET SENSORS:", "").trim();
+      let list = JSON.parse(json);
+
+      if (Array.isArray(list)) {
+        settings.sensors = list;
+        Bluetooth.println("OK: Sensors updated");
+      } else {
+        Bluetooth.println("ERR: Invalid sensor list");
+      }
+    } catch (e) {
+      Bluetooth.println("ERR: JSON parse failed");
+    }
+  }
+
+  if (d === "START") {
+    startCollection();
+    Bluetooth.println("OK: Started");
+  }
+
+  if (d === "STOP") {
+    stopCollection();
+    Bluetooth.println("OK: Stopped");
+  }
+});
+
+// ---------------- MENY ----------------
+
+function showMainMenu() {
+  E.showMenu({
     "": { title: "Mobistudy" },
     "< Tillbaka": () => load(),
 
-    "Sensorer": () => showSensorMenu(),
-    "Tidsstyrda tester": () => showTimedTestsMenu(),
-    "EMA": () => showEMAMenu(),
+    "Start": () => startCollection(),
+    "Stop": () => stopCollection(),
 
-    "Starta mätning": () => startDataCollection()
+    "Aktiva sensorer": () => showSensorList()
+  });
+}
+
+function showSensorList() {
+  let menu = {
+    "": { title: "Sensorer" },
+    "< Tillbaka": () => showMainMenu()
   };
+
+  settings.sensors.forEach(s => {
+    menu[s] = { value: true };
+  });
 
   E.showMenu(menu);
 }
 
-function showSensorMenu() {
-  E.showMenu({
-    "": { title: "Sensorer" },
-    "< Tillbaka": () => showStartMenu(),
-
-    "Accelerometer": {
-      value: settings.accelerometer,
-      onchange: v => { settings.accelerometer = v; saveSettings(); }
-    },
-    "Gyroskop": {
-      value: settings.gyroscope,
-      onchange: v => { settings.gyroscope = v; saveSettings(); }
-    },
-    "Puls": {
-      value: settings.heartRate,
-      onchange: v => { settings.heartRate = v; saveSettings(); }
-    }
-  });
-}
-
-function showTimedTestsMenu() {
-  E.showMenu({
-    "": { title: "Tidsstyrda tester" },
-    "< Tillbaka": () => showStartMenu()
-  });
-}
-
-function showEMAMenu() {
-  E.showMenu({
-    "": { title: "EMA" },
-    "< Tillbaka": () => showStartMenu()
-  });
-}
-
 // ---------------- START ----------------
 
-showStartMenu();
+showMainMenu();
