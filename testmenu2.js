@@ -12,7 +12,7 @@ let settings = {
 };
 
 // ---------------- STATE ----------------
-
+let file;
 let isCollecting = false;
 
 let lastTotalStepCount = -1;
@@ -91,20 +91,19 @@ function measureHR() {
 
 // ---------------- DATA COLLECTION ----------------
 function startCollection() {
-
   const menu = {
     "": { "title": "Timed tests" },
 
-    "< Back": () => {
-      stopCollection();
-      showStartMenu();
-    },
+    "Back": () => showMainMenu(),
 
     "Start": () => {
       if (isCollecting) return;
 
       isCollecting = true;
-      E.showMessage("Samlar data...", "Mobistudy");
+      Bangle.buzz(500);
+
+      file = require("Storage").open(settings.filename, "a");
+      file.write("timestamp,steps,accel,hr,hr_confidence,battery\n");
 
       // Aktivera valda sensorer
       if (settings.sensors.includes("steps")) enableStepSensor();
@@ -113,6 +112,8 @@ function startCollection() {
 
       // Starta periodic logging
       intervalID = setInterval(() => {
+        let row = [ts,currentStepCount,accelSamples ? (accelSum / accelSamples) : 0,hr,hrConfidence,E.getBattery()].join(",") + "\n";
+        file.write(row);
         let ts = Math.round(Date.now() / 1000);
         let batt = E.getBattery();
 
@@ -136,6 +137,7 @@ function startCollection() {
         if (settings.sensors.includes("hr")) measureHR();
 
       }, settings.interval * 1000);
+      
     }
   };
 
@@ -155,8 +157,10 @@ function stopCollection() {
   Bangle.removeAllListeners("accel");
   Bangle.removeAllListeners("HRM");
   Bangle.setHRMPower(false);
-
-  E.showMessage("Stoppad", "Mobistudy");
+  if (file) {
+    file = undefined;
+  }
+  
 }
 
 // ---------------- BLUETOOTH COMMANDS ----------------
@@ -197,11 +201,11 @@ function showMainMenu() {
   E.showMenu({
     "": { title: "Mobistudy" },
     
-
+    "Sensors": () => showSensorList(),
     "Start": () => startCollection(),
     "Stop": () => stopCollection(),
 
-    "Aktiva sensorer": () => showSensorList()
+    
   });
 }
 
