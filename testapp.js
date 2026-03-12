@@ -15,6 +15,7 @@
   let accelOn = false;
   let magOn = false;
   let pressureOn = false;
+  let tempOn = false;
   let gpsOn = false;
 
   function send(line) {
@@ -98,13 +99,34 @@ function startPressure (){
     send("DEBUG: BAR STOPPED");
   }
 
-  //Barometer
-  Bangle.on("pressure", b => {
-  if (testRunning && pressureOn) {
-    const ms = Date.now() - startTime;
-    send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temp}`);
+  function startTemp() {
+    if (tempOn) return;
+    tempOn = true;
+    send("DEBUG: TEMP STARTED");
   }
-});
+
+  function stopTemp() {
+    if (!tempOn) return;
+    tempOn = false;
+    send("DEBUG: TEMP STOPPED");
+  }
+
+  //Barometer
+   Bangle.on("pressure", b => {
+
+    // Pressure-data
+    if (testRunning && pressureOn) {
+      const ms = Date.now() - startTime;
+      send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
+    }
+
+    // Temperatur-data (separat)
+    if (testRunning && tempOn) {
+      const ms = Date.now() - startTime;
+      send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
+    }
+
+  });
 
 function startGps (){
     if (gpsOn) return;
@@ -146,6 +168,9 @@ function startGps (){
 
       if (cmd === "pressure_ON") startPressure();
       if (cmd === "pressure_OFF") stopPressure();
+      
+      if (cmd === "TEMP_ON") startTemp();
+      if (cmd === "TEMP_OFF") stopTemp();
 
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
@@ -164,6 +189,7 @@ function startGps (){
         stopAccel();
         stopMag();
         stopPressure();
+        stopTemp();
         stopGps();
         send("STOPPED");
       }
