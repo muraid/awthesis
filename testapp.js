@@ -121,6 +121,9 @@ function startGps (){
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
+      if (cmd === "GPS_ON") startGps();
+      if (cmd === "GPS_OFF") stopGps();
+
       if (cmd === "START") {
         testRunning = true;
         startTime = Date.now();
@@ -132,6 +135,7 @@ function startGps (){
         stopHRM();
         stopAccel();
         stopMag();
+        stopGps();
         send("STOPPED");
       }
     });
