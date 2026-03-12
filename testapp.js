@@ -14,7 +14,7 @@
   let startTime = 0;
   let accelOn = false;
   let magOn = false;
-  let barOn = false;
+  let pressureOn = false;
   let gpsOn = false;
 
   function send(line) {
@@ -84,23 +84,23 @@ function startMag (){
   }
 });
 
-function startBar (){
-    if (barOn) return;
-    barOn = true;
-    Bangle.setCompassPower(true);
+function startPressure (){
+    if (pressureOn) return;
+    pressureOn = true;
+    Bangle.setBarometerPower(true);
     send("DEBUG: BAR STARTED");
   }
 
-  function stopBar (){
-    if (!barOn) return;
-    barOn = false;
-    Bangle.setCompassPower(false);
+  function stopPressure (){
+    if (!pressureOn) return;
+    pressureOn = false;
+    Bangle.setBarometerPower(false);
     send("DEBUG: BAR STOPPED");
   }
 
   //Barometer
   Bangle.on("pressure", b => {
-  if (testRunning && barOn) {
+  if (testRunning && pressureOn) {
     const ms = Date.now() - startTime;
     send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temp}`);
   }
@@ -144,8 +144,8 @@ function startGps (){
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
-      if (cmd === "pressure_ON") startBar();
-      if (cmd === "pressure_OFF") stopBar();
+      if (cmd === "pressure_ON") startPressure();
+      if (cmd === "pressure_OFF") stopPressure();
 
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
@@ -163,7 +163,7 @@ function startGps (){
         stopHRM();
         stopAccel();
         stopMag();
-        stopBar();
+        stopPressure();
         stopGps();
         send("STOPPED");
       }
