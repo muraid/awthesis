@@ -14,6 +14,7 @@
   let startTime = 0;
   let accelOn = false;
   let magOn = false;
+  let barOn = false;
   let gpsOn = false;
 
   function send(line) {
@@ -83,6 +84,27 @@ function startMag (){
   }
 });
 
+function startBar (){
+    if (barOn) return;
+    barOn = true;
+    Bangle.setCompassPower(true);
+    send("DEBUG: BAR STARTED");
+  }
+
+  function stopBar (){
+    if (!barOn) return;
+    barOn = false;
+    Bangle.setCompassPower(false);
+    send("DEBUG: BAR STOPPED");
+  }
+
+  Bangle.on("BAR", b => {
+  if (testRunning && barOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,MAG,${ms},${b.x.toFixed(3)},${b.y.toFixed(3)},${m.z.toFixed(3)}`);
+  }
+});
+
 function startGps (){
     if (gpsOn) return;
     gpsOn = true;
@@ -121,8 +143,13 @@ function startGps (){
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
+      if (cmd === "BAR_ON") startBar();
+      if (cmd === "BAR_OFF") stopBar();
+
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
+
+      
 
       if (cmd === "START") {
         testRunning = true;
@@ -135,6 +162,7 @@ function startGps (){
         stopHRM();
         stopAccel();
         stopMag();
+        stopBar();
         stopGps();
         send("STOPPED");
       }
