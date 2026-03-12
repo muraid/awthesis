@@ -14,6 +14,7 @@
   let startTime = 0;
   let accelOn = false;
   let magOn = false;
+  let gpsOn = false;
 
   function send(line) {
     Bluetooth.println(line);
@@ -75,10 +76,31 @@ function startMag (){
     send("DEBUG: MAG STOPPED");
   }
 
-  Bangle.on("mag", a => {
+  Bangle.on("GPS", m => {
   if (testRunning && magOn) {
     const ms = Date.now() - startTime;
     send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
+  }
+});
+
+function startGps (){
+    if (gpsOn) return;
+    gpsOn = true;
+    Bangle.setGPSPower(true);
+    send("DEBUG: GPS STARTED");
+  }
+
+  function stopGps (){
+    if (!gpsOn) return;
+    gpsOn = false;
+    Bangle.setGPSPower(false);
+    send("DEBUG: GPS STOPPED");
+  }
+
+    Bangle.on("GPS", g => {
+  if (testRunning && gpsOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,GPS,${ms},${g.x.toFixed(3)},${g.y.toFixed(3)}`);
   }
 });
 
