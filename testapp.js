@@ -13,6 +13,7 @@
   let testRunning = false;
   let startTime = 0;
   let accelOn = false;
+  let magOn = false;
 
   function send(line) {
     Bluetooth.println(line);
@@ -60,6 +61,27 @@
   }
 });
 
+function startMag (){
+    if (magOn) return;
+    magOn = true;
+    Bangle.setCompassPower(true);
+    send("DEBUG: MAG STARTED");
+  }
+
+  function stopMag (){
+    if (!magOn) return;
+    magOn = false;
+    Bangle.setCompassPower(false);
+    send("DEBUG: MAG STOPPED");
+  }
+
+  Bangle.on("mag", a => {
+  if (testRunning && magOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,mag`);
+  }
+});
+
 
   Bluetooth.on("data", function(d) {
     d.split("\n").forEach(cmd => {
@@ -74,6 +96,9 @@
       if (cmd == "ACC_ON") startAccel();
       if (cmd == "ACC_OFF") stopAccel();
 
+      if (cmd === "MAG_ON") startMag();
+      if (cmd === "MAG_OFF") stopMag();
+
       if (cmd === "START") {
         testRunning = true;
         startTime = Date.now();
@@ -84,6 +109,7 @@
         testRunning = false;
         stopHRM();
         stopAccel();
+        stopMag();
         send("STOPPED");
       }
     });
