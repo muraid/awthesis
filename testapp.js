@@ -102,12 +102,14 @@ function startPressure (){
   function startTemp() {
     if (tempOn) return;
     tempOn = true;
+    Bangle.setBarometerPower(true);
     send("DEBUG: TEMP STARTED");
   }
 
   function stopTemp() {
     if (!tempOn) return;
     tempOn = false;
+    Bangle.setBarometerPower(false);
     send("DEBUG: TEMP STOPPED");
   }
 
