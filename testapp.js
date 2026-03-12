@@ -98,10 +98,11 @@ function startBar (){
     send("DEBUG: BAR STOPPED");
   }
 
-  Bangle.on("BAR", b => {
+  //Barometer
+  Bangle.on("pressure", b => {
   if (testRunning && barOn) {
     const ms = Date.now() - startTime;
-    send(`DATA,MAG,${ms},${b.x.toFixed(3)},${b.y.toFixed(3)},${m.z.toFixed(3)}`);
+    send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temp}`);
   }
 });
 
@@ -143,8 +144,8 @@ function startGps (){
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
-      if (cmd === "BAR_ON") startBar();
-      if (cmd === "BAR_OFF") stopBar();
+      if (cmd === "pressure_ON") startBar();
+      if (cmd === "pressure_OFF") stopBar();
 
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
