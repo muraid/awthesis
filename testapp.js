@@ -78,7 +78,7 @@ function startMag (){
   Bangle.on("mag", a => {
   if (testRunning && magOn) {
     const ms = Date.now() - startTime;
-    send(`DATA,mag`);
+    send(`DATA,MAG`);
   }
 });
 
