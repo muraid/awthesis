@@ -76,7 +76,7 @@ function startMag (){
     send("DEBUG: MAG STOPPED");
   }
 
-  Bangle.on("GPS", m => {
+  Bangle.on("MAG", m => {
   if (testRunning && magOn) {
     const ms = Date.now() - startTime;
     send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
@@ -97,10 +97,10 @@ function startGps (){
     send("DEBUG: GPS STOPPED");
   }
 
-    Bangle.on("GPS", g => {
+  Bangle.on("GPS", g => {
   if (testRunning && gpsOn) {
     const ms = Date.now() - startTime;
-    send(`DATA,GPS,${ms},${g.x.toFixed(3)},${g.y.toFixed(3)}`);
+    send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
   }
 });
 
