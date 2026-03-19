@@ -188,6 +188,66 @@ function startGps (){
 }
 });
 
+function sendAggregatedData() {
+  const ms = Date.now() - startTime;
+
+  // HRM
+  if (hrmBuffer.length > 0) {
+    const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
+    const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
+    send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
+    hrmBuffer = [];
+  }
+
+  // ACC
+  if (accelBuffer.length > 0) {
+    const avg = axisAvg(accelBuffer);
+    send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
+    accelBuffer = [];
+  }
+
+  // MAG
+  if (magBuffer.length > 0) {
+    const avg = axisAvg(magBuffer);
+    send(`AGG,MAG,${ms},${avg.x},${avg.y},${avg.z}`);
+    magBuffer = [];
+  }
+
+  // PRESSURE
+  if (pressureBuffer.length > 0) {
+    const avgP = pressureBuffer.reduce((s,v)=>s+v.pressure,0)/pressureBuffer.length;
+    const avgAlt = pressureBuffer.reduce((s,v)=>s+v.altitude,0)/pressureBuffer.length;
+    const avgT = pressureBuffer.reduce((s,v)=>s+v.temperature,0)/pressureBuffer.length;
+    send(`AGG,PRESS,${ms},${avgP.toFixed(2)},${avgAlt.toFixed(2)},${avgT.toFixed(2)}`);
+    pressureBuffer = [];
+  }
+
+  // TEMP
+  if (tempBuffer.length > 0) {
+    const avgT = tempBuffer.reduce((s,v)=>s+v.temperature,0)/tempBuffer.length;
+    send(`AGG,TEMP,${ms},${avgT.toFixed(2)}`);
+    tempBuffer = [];
+  }
+
+  // GPS
+  if (gpsBuffer.length > 0) {
+    const avgLat = gpsBuffer.reduce((s,v)=>s+v.lat,0)/gpsBuffer.length;
+    const avgLon = gpsBuffer.reduce((s,v)=>s+v.lon,0)/gpsBuffer.length;
+    const avgAlt = gpsBuffer.reduce((s,v)=>s+v.alt,0)/gpsBuffer.length;
+    send(`AGG,GPS,${ms},${avgLat.toFixed(6)},${avgLon.toFixed(6)},${avgAlt.toFixed(1)}`);
+    gpsBuffer = [];
+  }
+}
+
+function axisAvg(arr) {
+  return {
+    x: (arr.reduce((s,v)=>s+v.x,0)/arr.length).toFixed(3),
+    y: (arr.reduce((s,v)=>s+v.y,0)/arr.length).toFixed(3),
+    z: (arr.reduce((s,v)=>s+v.z,0)/arr.length).toFixed(3)
+  };
+}
+
+
   Bluetooth.on("data", function(d) {
     d.split("\n").forEach(cmd => {
       cmd = cmd.trim();
@@ -213,8 +273,23 @@ function startGps (){
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
 
-      
+      // Set sampling period for aggregation
+      if (cmd.startsWith("SET_PERIOD")) {
+        const parts = cmd.split(",");
+        samplingPeriod = parseInt(parts[1]) || 0;
 
+      if (aggTimer) {
+        clearInterval(aggTimer);
+        aggTimer = null;
+      }
+
+      if (samplingPeriod > 0) {
+        aggTimer = setInterval(sendAggregatedData, samplingPeriod);
+        send("DEBUG: AGGREGATION ENABLED " + samplingPeriod + " ms");
+      } else {
+        send("DEBUG: AGGREGATION DISABLED");
+      }
+    }
       if (cmd === "START") {
         testRunning = true;
         startTime = Date.now();
