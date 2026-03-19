@@ -18,6 +18,19 @@
   let tempOn = false;
   let gpsOn = false;
 
+  //Sampling period from user input
+  let samplingPeriod = 0;
+  let aggTimer = null;
+
+  //Buffer for aggregated data
+  let hrmBuffer = [];
+  let accelBuffer = [];
+  let magBuffer = [];
+  let pressureBuffer = [];
+  let tempBuffer = [];
+  let gpsBuffer = [];
+
+
   function send(line) {
     Bluetooth.println(line);
   }
@@ -38,10 +51,14 @@
 
   Bangle.on("HRM", d => {
     if (testRunning && hrmOn) {
+      if (samplingPeriod > 0) {
+        hrmBuffer.push(d);
+      } else {
       const ms = Date.now() - startTime;
       send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
     }
-  });
+  }
+});
 
   function startAccel (){
     if (accelOn) return;
@@ -59,9 +76,13 @@
 
   Bangle.on("accel", a => {
   if (testRunning && accelOn) {
+     if (samplingPeriod > 0) {
+        accelBuffer.push(a);
+      } else {
     const ms = Date.now() - startTime;
     send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
   }
+}
 });
 
 function startMag (){
@@ -80,9 +101,13 @@ function startMag (){
 
   Bangle.on("MAG", m => {
   if (testRunning && magOn) {
+     if (samplingPeriod > 0) {
+        magBuffer.push(m);
+      } else {
     const ms = Date.now() - startTime;
     send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
   }
+}
 });
 
 function startPressure (){
@@ -118,17 +143,25 @@ function startPressure (){
 
     // Pressure-data
     if (testRunning && pressureOn) {
+       if (samplingPeriod > 0) {
+        pressureBuffer.push(b);
+      } else {
       const ms = Date.now() - startTime;
       send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
     }
 
     // Temperatur-data (separat)
     if (testRunning && tempOn) {
+       if (samplingPeriod > 0) {
+        tempBuffer.push(b);
+      } else {
       const ms = Date.now() - startTime;
       send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
     }
 
-  });
+  }
+}
+});
 
 function startGps (){
     if (gpsOn) return;
@@ -146,11 +179,14 @@ function startGps (){
 
   Bangle.on("GPS", g => {
   if (testRunning && gpsOn) {
+     if (samplingPeriod > 0) {
+        gpsBuffer.push(g);
+      } else {
     const ms = Date.now() - startTime;
     send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
   }
+}
 });
-
 
   Bluetooth.on("data", function(d) {
     d.split("\n").forEach(cmd => {
