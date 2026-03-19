@@ -13,10 +13,15 @@
   let testRunning = false;
   let startTime = 0;
   let accelOn = false;
+  let stepOn = false;
   let magOn = false;
   let pressureOn = false;
   let tempOn = false;
   let gpsOn = false;
+
+   //steps 
+  let lastTotalStepCount = -1;
+  let currentStepCount = 0;
 
   // Aggregation variables
   let samplingPeriod = 0;
@@ -62,6 +67,20 @@
     accelOn = false;
     Bangle.setAccelPower(0);
     send("DEBUG: ACCEL STOPPED");
+  }
+
+  function startSteps (){
+    if (stepOn) return;
+    stepOn = true;
+    send("DEBUG: STEPS STARTED");
+  }
+
+  function stopSteps (){
+    if (!stepOn) return;
+    stepOn = false;
+    lastTotalStepCount = -1;
+    currentStepCount = 0;
+    send("DEBUG: STEPS STOPPED");
   }
 
   function startMag (){
@@ -149,6 +168,12 @@
       accelBuffer = [];
     }
 
+    if (stepOn && currentStepCount > 0) {
+      const ms = Date.now() - startTime;
+      send(`AGG,STEPS,${ms},${currentStepCount}`);
+      currentStepCount = 0; //nollställs efter varje aggregering
+    }
+
     // MAG
     if (magBuffer.length > 0) {
       const avg = axisAvg(magBuffer);
@@ -202,6 +227,19 @@
         const ms = Date.now() - startTime;
         send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
       }
+    }
+  });
+
+   Bangle.on("step", s => {
+    if (!testRunning || stepOn) return; 
+    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
+    currentStepCount = s - lastTotalStepCount;
+    const ms = Date.now() - startTime;
+
+    //raw
+    if(samplingPeriod === 0) {
+      send(`DATA,STEPS,${ms},${currentStepCount}`);
+      currentStepCount = 0; //nollställs direkt i raw-läge
     }
   });
 
@@ -260,6 +298,9 @@
       if (cmd === "ACC_ON") startAccel();
       if (cmd === "ACC_OFF") stopAccel();
 
+      if (cmd === "STEPS_ON") startSteps();
+      if (cmd === "STEPS_OFF") stopSteps();
+
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
@@ -302,6 +343,7 @@
 
         stopHRM();
         stopAccel();
+        stopSteps();
         stopMag();
         stopPressure();
         stopTemp();
