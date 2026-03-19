@@ -41,6 +41,7 @@
   // -----------------------------
   // SENSOR START/STOP FUNCTIONS
   // -----------------------------
+  // HRM
   function startHRM() {
     if (hrmOn) return;
     hrmOn = true;
@@ -55,6 +56,7 @@
     send("DEBUG: HRM STOPPED");
   }
 
+  //ACCEL 
   function startAccel (){
     if (accelOn) return;
     accelOn = true;
@@ -69,9 +71,12 @@
     send("DEBUG: ACCEL STOPPED");
   }
 
+  //STEPS
   function startSteps (){
     if (stepOn) return;
     stepOn = true;
+    lastTotalStepCount = -1;
+    currentStepCount = 0;
     send("DEBUG: STEPS STARTED");
   }
 
@@ -83,6 +88,7 @@
     send("DEBUG: STEPS STOPPED");
   }
 
+  //MAG 
   function startMag (){
     if (magOn) return;
     magOn = true;
@@ -97,6 +103,7 @@
     send("DEBUG: MAG STOPPED");
   }
 
+  //BAR 
   function startPressure (){
     if (pressureOn) return;
     pressureOn = true;
@@ -111,6 +118,7 @@
     send("DEBUG: BAR STOPPED");
   }
 
+  //TEMP 
   function startTemp() {
     if (tempOn) return;
     tempOn = true;
@@ -125,6 +133,7 @@
     send("DEBUG: TEMP STOPPED");
   }
 
+  //GPS 
   function startGps (){
     if (gpsOn) return;
     gpsOn = true;
@@ -234,19 +243,26 @@
    Bangle.on("step", s => {
     if (!testRunning || !stepOn) return;
 
-    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
+    if (lastTotalStepCount < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
 
     const diff = s - lastTotalStepCount;
-    if (diff < 0) return;
+    if (diff < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
 
-    currentStepCount = diff;
+    currentStepCount += diff;
+
+    lastTotalStepCount = s;
 
     const ms = Date.now() - startTime;
 
     //Raw
     if (samplingPeriod === 0) {
       send(`DATA,STEPS,${ms},${currentStepCount}`);
-      lastTotalStepCount = s; 
       currentStepCount = 0;
     }
     
