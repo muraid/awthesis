@@ -168,10 +168,10 @@
       accelBuffer = [];
     }
 
+    //steps 
     if (stepOn && currentStepCount > 0) {
       const ms = Date.now() - startTime;
       send(`AGG,STEPS,${ms},${currentStepCount}`);
-      lastTotalStepCount += currentStepCount; //uppdatera totalen
       currentStepCount = 0; //nollställs efter varje aggregering
     }
 
