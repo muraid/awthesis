@@ -18,11 +18,10 @@
   let tempOn = false;
   let gpsOn = false;
 
-  //Sampling period from user input
+  // Aggregation variables
   let samplingPeriod = 0;
   let aggTimer = null;
 
-  //Buffer for aggregated data
   let hrmBuffer = [];
   let accelBuffer = [];
   let magBuffer = [];
@@ -30,11 +29,13 @@
   let tempBuffer = [];
   let gpsBuffer = [];
 
-
   function send(line) {
     Bluetooth.println(line);
   }
 
+  // -----------------------------
+  // SENSOR START/STOP FUNCTIONS
+  // -----------------------------
   function startHRM() {
     if (hrmOn) return;
     hrmOn = true;
@@ -48,17 +49,6 @@
     Bangle.setHRMPower(0);
     send("DEBUG: HRM STOPPED");
   }
-
-  Bangle.on("HRM", d => {
-    if (testRunning && hrmOn) {
-      if (samplingPeriod > 0) {
-        hrmBuffer.push(d);
-      } else {
-      const ms = Date.now() - startTime;
-      send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
-    }
-  }
-});
 
   function startAccel (){
     if (accelOn) return;
@@ -74,18 +64,7 @@
     send("DEBUG: ACCEL STOPPED");
   }
 
-  Bangle.on("accel", a => {
-  if (testRunning && accelOn) {
-     if (samplingPeriod > 0) {
-        accelBuffer.push(a);
-      } else {
-    const ms = Date.now() - startTime;
-    send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
-  }
-}
-});
-
-function startMag (){
+  function startMag (){
     if (magOn) return;
     magOn = true;
     Bangle.setCompassPower(true);
@@ -99,18 +78,7 @@ function startMag (){
     send("DEBUG: MAG STOPPED");
   }
 
-  Bangle.on("MAG", m => {
-  if (testRunning && magOn) {
-     if (samplingPeriod > 0) {
-        magBuffer.push(m);
-      } else {
-    const ms = Date.now() - startTime;
-    send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
-  }
-}
-});
-
-function startPressure (){
+  function startPressure (){
     if (pressureOn) return;
     pressureOn = true;
     Bangle.setBarometerPower(true);
@@ -138,32 +106,7 @@ function startPressure (){
     send("DEBUG: TEMP STOPPED");
   }
 
-  //Barometer
-   Bangle.on("pressure", b => {
-
-    // Pressure-data
-    if (testRunning && pressureOn) {
-       if (samplingPeriod > 0) {
-        pressureBuffer.push(b);
-      } else {
-      const ms = Date.now() - startTime;
-      send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
-    }
-
-    // Temperatur-data (separat)
-    if (testRunning && tempOn) {
-       if (samplingPeriod > 0) {
-        tempBuffer.push(b);
-      } else {
-      const ms = Date.now() - startTime;
-      send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
-    }
-
-  }
-}
-});
-
-function startGps (){
+  function startGps (){
     if (gpsOn) return;
     gpsOn = true;
     Bangle.setGPSPower(true);
@@ -177,77 +120,132 @@ function startGps (){
     send("DEBUG: GPS STOPPED");
   }
 
-  Bangle.on("GPS", g => {
-  if (testRunning && gpsOn) {
-     if (samplingPeriod > 0) {
-        gpsBuffer.push(g);
-      } else {
+  // -----------------------------
+  // AGGREGATION HELPERS
+  // -----------------------------
+  function axisAvg(arr) {
+    return {
+      x: (arr.reduce((s,v)=>s+v.x,0)/arr.length).toFixed(3),
+      y: (arr.reduce((s,v)=>s+v.y,0)/arr.length).toFixed(3),
+      z: (arr.reduce((s,v)=>s+v.z,0)/arr.length).toFixed(3)
+    };
+  }
+
+  function sendAggregatedData() {
     const ms = Date.now() - startTime;
-    send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
+
+    // HRM
+    if (hrmBuffer.length > 0) {
+      const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
+      const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
+      send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
+      hrmBuffer = [];
+    }
+
+    // ACC
+    if (accelBuffer.length > 0) {
+      const avg = axisAvg(accelBuffer);
+      send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
+      accelBuffer = [];
+    }
+
+    // MAG
+    if (magBuffer.length > 0) {
+      const avg = axisAvg(magBuffer);
+      send(`AGG,MAG,${ms},${avg.x},${avg.y},${avg.z}`);
+      magBuffer = [];
+    }
+
+    // PRESSURE
+    if (pressureBuffer.length > 0) {
+      const avgP = pressureBuffer.reduce((s,v)=>s+v.pressure,0)/pressureBuffer.length;
+      const avgAlt = pressureBuffer.reduce((s,v)=>s+v.altitude,0)/pressureBuffer.length;
+      const avgT = pressureBuffer.reduce((s,v)=>s+v.temperature,0)/pressureBuffer.length;
+      send(`AGG,pressure,${ms},${avgP.toFixed(2)},${avgAlt.toFixed(2)},${avgT.toFixed(2)}`);
+      pressureBuffer = [];
+    }
+
+    // TEMP
+    if (tempBuffer.length > 0) {
+      const avgT = tempBuffer.reduce((s,v)=>s+v.temperature,0)/tempBuffer.length;
+      send(`AGG,TEMP,${ms},${avgT.toFixed(2)}`);
+      tempBuffer = [];
+    }
+
+    // GPS
+    if (gpsBuffer.length > 0) {
+      const avgLat = gpsBuffer.reduce((s,v)=>s+v.lat,0)/gpsBuffer.length;
+      const avgLon = gpsBuffer.reduce((s,v)=>s+v.lon,0)/gpsBuffer.length;
+      const avgAlt = gpsBuffer.reduce((s,v)=>s+v.alt,0)/gpsBuffer.length;
+      send(`AGG,GPS,${ms},${avgLat.toFixed(6)},${avgLon.toFixed(6)},${avgAlt.toFixed(1)}`);
+      gpsBuffer = [];
+    }
   }
-}
-});
 
-function sendAggregatedData() {
-  const ms = Date.now() - startTime;
+  // -----------------------------
+  // SENSOR EVENTS (RAW + AGG)
+  // -----------------------------
+  Bangle.on("HRM", d => {
+    if (testRunning && hrmOn) {
+      if (samplingPeriod > 0) hrmBuffer.push(d);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
+      }
+    }
+  });
 
-  // HRM
-  if (hrmBuffer.length > 0) {
-    const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
-    const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
-    send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
-    hrmBuffer = [];
-  }
+  Bangle.on("accel", a => {
+    if (testRunning && accelOn) {
+      if (samplingPeriod > 0) accelBuffer.push(a);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
+      }
+    }
+  });
 
-  // ACC
-  if (accelBuffer.length > 0) {
-    const avg = axisAvg(accelBuffer);
-    send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
-    accelBuffer = [];
-  }
+  Bangle.on("MAG", m => {
+    if (testRunning && magOn) {
+      if (samplingPeriod > 0) magBuffer.push(m);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
+      }
+    }
+  });
 
-  // MAG
-  if (magBuffer.length > 0) {
-    const avg = axisAvg(magBuffer);
-    send(`AGG,MAG,${ms},${avg.x},${avg.y},${avg.z}`);
-    magBuffer = [];
-  }
+  Bangle.on("pressure", b => {
+    if (testRunning && pressureOn) {
+      if (samplingPeriod > 0) pressureBuffer.push(b);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
+      }
+    }
 
-  // PRESSURE
-  if (pressureBuffer.length > 0) {
-    const avgP = pressureBuffer.reduce((s,v)=>s+v.pressure,0)/pressureBuffer.length;
-    const avgAlt = pressureBuffer.reduce((s,v)=>s+v.altitude,0)/pressureBuffer.length;
-    const avgT = pressureBuffer.reduce((s,v)=>s+v.temperature,0)/pressureBuffer.length;
-    send(`AGG,PRESS,${ms},${avgP.toFixed(2)},${avgAlt.toFixed(2)},${avgT.toFixed(2)}`);
-    pressureBuffer = [];
-  }
+    if (testRunning && tempOn) {
+      if (samplingPeriod > 0) tempBuffer.push(b);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
+      }
+    }
+  });
 
-  // TEMP
-  if (tempBuffer.length > 0) {
-    const avgT = tempBuffer.reduce((s,v)=>s+v.temperature,0)/tempBuffer.length;
-    send(`AGG,TEMP,${ms},${avgT.toFixed(2)}`);
-    tempBuffer = [];
-  }
+  Bangle.on("GPS", g => {
+    if (testRunning && gpsOn) {
+      if (samplingPeriod > 0) gpsBuffer.push(g);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
+      }
+    }
+  });
 
-  // GPS
-  if (gpsBuffer.length > 0) {
-    const avgLat = gpsBuffer.reduce((s,v)=>s+v.lat,0)/gpsBuffer.length;
-    const avgLon = gpsBuffer.reduce((s,v)=>s+v.lon,0)/gpsBuffer.length;
-    const avgAlt = gpsBuffer.reduce((s,v)=>s+v.alt,0)/gpsBuffer.length;
-    send(`AGG,GPS,${ms},${avgLat.toFixed(6)},${avgLon.toFixed(6)},${avgAlt.toFixed(1)}`);
-    gpsBuffer = [];
-  }
-}
-
-function axisAvg(arr) {
-  return {
-    x: (arr.reduce((s,v)=>s+v.x,0)/arr.length).toFixed(3),
-    y: (arr.reduce((s,v)=>s+v.y,0)/arr.length).toFixed(3),
-    z: (arr.reduce((s,v)=>s+v.z,0)/arr.length).toFixed(3)
-  };
-}
-
-
+  // -----------------------------
+  // BLUETOOTH COMMAND HANDLER
+  // -----------------------------
   Bluetooth.on("data", function(d) {
     d.split("\n").forEach(cmd => {
       cmd = cmd.trim();
@@ -255,41 +253,44 @@ function axisAvg(arr) {
 
       send("DEBUG: GOT CMD " + cmd);
 
+      // SENSOR COMMANDS
       if (cmd === "HR_ON") startHRM();
       if (cmd === "HR_OFF") stopHRM();
 
-      if (cmd == "ACC_ON") startAccel();
-      if (cmd == "ACC_OFF") stopAccel();
+      if (cmd === "ACC_ON") startAccel();
+      if (cmd === "ACC_OFF") stopAccel();
 
       if (cmd === "MAG_ON") startMag();
       if (cmd === "MAG_OFF") stopMag();
 
       if (cmd === "pressure_ON") startPressure();
       if (cmd === "pressure_OFF") stopPressure();
-      
+
       if (cmd === "TEMP_ON") startTemp();
       if (cmd === "TEMP_OFF") stopTemp();
 
       if (cmd === "GPS_ON") startGps();
       if (cmd === "GPS_OFF") stopGps();
 
-      // Set sampling period for aggregation
+      // AGGREGATION COMMAND
       if (cmd.startsWith("SET_PERIOD")) {
         const parts = cmd.split(",");
         samplingPeriod = parseInt(parts[1]) || 0;
 
-      if (aggTimer) {
-        clearInterval(aggTimer);
-        aggTimer = null;
+        if (aggTimer) {
+          clearInterval(aggTimer);
+          aggTimer = null;
+        }
+
+        if (samplingPeriod > 0) {
+          aggTimer = setInterval(sendAggregatedData, samplingPeriod);
+          send("DEBUG: AGGREGATION ENABLED " + samplingPeriod + " ms");
+        } else {
+          send("DEBUG: AGGREGATION DISABLED");
+        }
       }
 
-      if (samplingPeriod > 0) {
-        aggTimer = setInterval(sendAggregatedData, samplingPeriod);
-        send("DEBUG: AGGREGATION ENABLED " + samplingPeriod + " ms");
-      } else {
-        send("DEBUG: AGGREGATION DISABLED");
-      }
-    }
+      // START/STOP
       if (cmd === "START") {
         testRunning = true;
         startTime = Date.now();
@@ -298,12 +299,19 @@ function axisAvg(arr) {
 
       if (cmd === "STOP") {
         testRunning = false;
+
         stopHRM();
         stopAccel();
         stopMag();
         stopPressure();
         stopTemp();
         stopGps();
+
+        if (aggTimer) {
+          clearInterval(aggTimer);
+          aggTimer = null;
+        }
+
         send("STOPPED");
       }
     });
