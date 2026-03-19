@@ -171,6 +171,7 @@
     if (stepOn && currentStepCount > 0) {
       const ms = Date.now() - startTime;
       send(`AGG,STEPS,${ms},${currentStepCount}`);
+      lastTotalStepCount += currentStepCount; //uppdatera totalen
       currentStepCount = 0; //nollställs efter varje aggregering
     }
 
@@ -231,16 +232,24 @@
   });
 
    Bangle.on("step", s => {
-    if (!testRunning || stepOn) return; 
+    if (!testRunning || !stepOn) return;
+
     if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
-    currentStepCount = s - lastTotalStepCount;
+
+    const diff = s - lastTotalStepCount;
+    if (diff < 0) return;
+
+    currentStepCount = diff;
+
     const ms = Date.now() - startTime;
 
-    //raw
-    if(samplingPeriod === 0) {
+    //Raw
+    if (samplingPeriod === 0) {
       send(`DATA,STEPS,${ms},${currentStepCount}`);
-      currentStepCount = 0; //nollställs direkt i raw-läge
+      lastTotalStepCount = s; 
+      currentStepCount = 0;
     }
+    
   });
 
   Bangle.on("MAG", m => {
