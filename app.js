@@ -317,7 +317,6 @@
   let isMeasuringHRLog = false;
 
   function appendRow(ts, steps, accel, hr, conf, batt) {
-    if (!file) return;
     const line = [
       ts,
       steps ?? "",
@@ -383,7 +382,7 @@
     Bangle.buzz(300);
 
     storage.write(
-      settings.file,
+      settings.filename,
       "timestamp, steps, accel, hr, hr_confidence, battery\n"
     );
 
@@ -535,7 +534,40 @@
     E.showMessage("Stoppad");
   }
 
+  function resetUI(){
+     testRunning = false; 
+    stopHRM();
+    stopAccel();
+    stopSteps();
+    stopMag();
+    stopPressure();
+    stopTemp();
+    stopGps();
+
+    if (aggTimer) {
+      clearInterval(aggTimer);
+      aggTimer = null;
+    }
+
+    if (logTimer) {
+      clearInterval(logTimer);
+      logTimer = null;
+    }
+    
+    if (hrTimer) {
+      clearInterval(hrTimer);
+      hrTimer = null;
+    }
+
+    lastTotalStepCount = -1;
+    currentStepCountLog = 0;
+    currentStepCount = 0;
+    accelSumLog = 0;
+    accelSamplesLog = 0;
+  }
+
   function showLoggingMenu(){
+    resetUI();
     E.showMenu({
       "": { title: "Logging" },
       "Välj sesnorer": () => showSensorList(),
@@ -549,9 +581,10 @@
   }
 
   function showSensorList() {
+    resetUI();
     let menu = {
       "": { title: "Aktiva sensorer" },
-      "< Tillbaka": () => showMainMenu()
+      "< Tillbaka": () => showLoggingMenu()
     };
 
     let allSensors = ["steps", "accel", "hr"];
@@ -573,31 +606,7 @@
   }
 
   function showMainMenu() {
-    testRunning = false; 
-    stopHRM();
-    stopAccel();
-    stopSteps();
-    stopMag();
-    stopPressure();
-    stopTemp();
-    stopGps();
-
-    if (aggTimer){
-      clearInterval(aggTimer);
-      aggTimer = null;
-    }
-
-    if (logTimer) clearInterval(logTimer);
-    if (hrTimer) clearInterval(hrTimer);
-
-    logTimer = null;
-    hrTimer = null;
-
-    lastTotalStepCount = -1;
-    currentStepCountLog = 0;
-    accelSumLog = 0;
-    accelSamplesLog = 0;
-
+    resetUI();
     E.showMenu({
       "": { title: "Mobistudy" },
 
