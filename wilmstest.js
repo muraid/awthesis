@@ -1,311 +1,625 @@
-Bangle.loadWidgets();
-Bangle.drawWidgets();   
+(() => {
 
-const storage = require("Storage");
+  // ---------------- BAS / INIT ----------------
 
-//code from innovation course 
-const config = {
-  filename: settings.filename || "mobistudy.bin",
-  samplingPeriod: settings.interval, 
-  bytesPerStepCount: 1
-};
+  //Bluetooth.setConsole(false); // needs to be activated to test data streaming with webapp. 
 
-let writtenRows = 0;
-let lastTotalStepCount = -1;
-let currentStepCount = 0;
-let accelSum = 0;
-let accelSamples = 0;
-let hr = 0;
-let hrConfidence = 0;
-let isMeasuring = false;
-//code from innovation course 
+  Bangle.loadWidgets();
+  Bangle.drawWidgets();
 
+  const storage = require("Storage");
 
-let settings = storage.readJSON("mobistudy.json", 1) || {
-    interval: 10,
-    vibration: true,
-    accelerometer: true,
-    heartRate: true,
-    filename: "mobistudy_log.csv",
-    continuous: false,
-    sporadic: false
-};
+  // ---------------- STREAMING-DEL (från testapp.js) ----------------
 
-function saveSettings() {
-    storage.writeJSON("mobistudy.json", settings);
-}
+  let hrmOn = false;
+  let testRunning = false;
+  let startTime = 0;
+  let accelOn = false;
+  let stepOn = false;
+  let magOn = false;
+  let pressureOn = false;
+  let tempOn = false;
+  let gpsOn = false;
 
-function showStartMenu() {
-    const menu = {
-        "": { "title": "Start Menu" },
-        "< Back": () => load(),
+  // steps (streaming)
+  let lastTotalStepCount = -1;
+  let currentStepCount = 0;
 
-        "Sensors": {
-            onchange: () => showSensorsMenu()
-        },
-        "Timed tests": {
-            onchange: () => showTimedTestsMenu()
-        },
-        "EMA": {
-            onchange: () => showEMAMenu()
-        },
-        "Start": {
-             onchange: () => startDataCollection()
-        }
-    };
-    E.showMenu(menu);
-}
+  // Aggregation variables
+  let samplingPeriod = 0;
+  let aggTimer = null;
 
-function showSensorsMenu() {
-    const menu = {
-        "": { "title": "Sensors" },
-        "< Back": function() { showStartMenu(); },
+  let hrmBuffer = [];
+  let accelBuffer = [];
+  let magBuffer = [];
+  let pressureBuffer = [];
+  let tempBuffer = [];
+  let gpsBuffer = [];
 
-        "Interval (s)": {
-            value: settings.interval,
-            min: 1,
-            max: 60,
-            step: 1,
-            onchange: v => {
-                settings.interval = v;
-                saveSettings();
-            }
-        },
-        "Accelerometer": {
-            value: settings.accelerometer,
-            onchange: v => {
-                settings.accelerometer = v; 
-                saveSettings();
-            }
-        },
-        "Heart Rate": {
-            value: settings.heartRate,
-            onchange: v => {
-                settings.heartRate = v; 
-                saveSettings();
-            }
-        },
-        "Filename": {
-            value: settings.filename,
-            onchange: v => {
-                settings.filename = v;
-                saveSettings();
-            }   
-        },
-         "Type of data collection": {
-            onchange: () => dataCollectionType()
-        }
-
-    };
-    E.showMenu(menu);
-}
-
-
-function dataCollectionType() {
-    const menu = {
-        "": { "title": "Type of data collection" },
-        "< Back": function() { showSensorsMenu(); },
-
-    "Continuous": {
-            value: settings.continuous,
-            onchange: v => {
-                settings.continuous = v;
-                saveSettings();
-            }
-    },
-    "Sporadic": {
-        value: settings.sporadic,
-        onchange: v => {
-            settings.sporadic = v;
-            saveSettings();
-        }
-    }
-
-    };
-    E.showMenu(menu);
-}
-
-
-function showTimedTestsMenu() {
-    const menu = {
-        "": { "title": "Timed tests" },
-        "< Back": function() { showStartMenu(); }, 
-
-        "6MWT": {
-            value: settings.walkingtest,
-            onchange: v => {
-                settings.walkingtest = v; 
-                saveSettings();
-            }
-        },
-        "Timed up and go": {
-            value: settings.upandgo,
-            onchange: v => {
-                settings.upandgo = v; 
-                saveSettings();
-            }
-        }
-    };
-    E.showMenu(menu);
-}
-
-function showEMAMenu() {
-    const menu = {
-        "": { "title": "EMA" },
-        "< Back": function() { showStartMenu(); },
-
-    };
-    E.showMenu(menu);
-
-}
-
-function startDataCollection() {
-  const menu = {
-    "": { "title": "Timed tests" },
-    "< Back": function() { showStartMenu(); },
-
-    "RECORD": {
-      value: !!settings.recording,
-      onchange: v => {
-        setTimeout(function() {
-          E.showMenu(); // rensa menyn visuellt
-          require("recorder").setRecording(v).then(function() {
-            loadSettings();
-            startDataCollection(); // visa denna meny igen
-          });
-        }, 1);
-      }
-    }
-  };
-
-  E.showMenu(menu);
-}
-
-// ---------------- HEART RATE ----------------
-
-function measureHR() {
-  if (isMeasuringHR) return;
-
-  isMeasuringHR = true;
-  let samples = [];
-
-  function onHRM(e) {
-    if (e.confidence > 0 && e.bpm > 0) samples.push(e);
+  function send(line) {
+    Bluetooth.println(line);
   }
 
-  Bangle.on("HRM", onHRM);
-  Bangle.setHRMPower(true);
+  // -----------------------------
+  // SENSOR START/STOP FUNCTIONS (streaming)
+  // -----------------------------
+  function startHRM() {
+    if (hrmOn) return;
+    hrmOn = true;
+    Bangle.setHRMPower(1);
+    send("DEBUG: HRM STARTED");
+  }
 
-  setTimeout(() => {
-    Bangle.removeListener("HRM", onHRM);
-    Bangle.setHRMPower(false);
-    isMeasuringHR = false;
+  function stopHRM() {
+    if (!hrmOn) return;
+    hrmOn = false;
+    Bangle.setHRMPower(0);
+    send("DEBUG: HRM STOPPED");
+  }
 
-    if (samples.length === 0) {
-      hr = 0;
-      hrConfidence = 0;
-    } else {
-      let best = samples.reduce((a, b) =>
-        b.confidence > a.confidence ? b : a
-      );
-      hr = best.bpm;
-      hrConfidence = best.confidence;
+  function startAccel (){
+    if (accelOn) return;
+    accelOn = true;
+    Bangle.setAccelPower(1);
+    send("DEBUG: ACCEL STARTED");
+  }
+
+  function stopAccel (){
+    if (!accelOn) return;
+    accelOn = false;
+    Bangle.setAccelPower(0);
+    send("DEBUG: ACCEL STOPPED");
+  }
+
+  function startSteps (){
+    if (stepOn) return;
+    stepOn = true;
+    lastTotalStepCount = -1;
+    currentStepCount = 0;
+    send("DEBUG: STEPS STARTED");
+  }
+
+  function stopSteps (){
+    if (!stepOn) return;
+    stepOn = false;
+    lastTotalStepCount = -1;
+    currentStepCount = 0;
+    send("DEBUG: STEPS STOPPED");
+  }
+
+  function startMag (){
+    if (magOn) return;
+    magOn = true;
+    Bangle.setCompassPower(true);
+    send("DEBUG: MAG STARTED");
+  }
+
+  function stopMag (){
+    if (!magOn) return;
+    magOn = false;
+    Bangle.setCompassPower(false);
+    send("DEBUG: MAG STOPPED");
+  }
+
+  function startPressure (){
+    if (pressureOn) return;
+    pressureOn = true;
+    Bangle.setBarometerPower(true);
+    send("DEBUG: BAR STARTED");
+  }
+
+  function stopPressure (){
+    if (!pressureOn) return;
+    pressureOn = false;
+    Bangle.setBarometerPower(false);
+    send("DEBUG: BAR STOPPED");
+  }
+
+  function startTemp() {
+    if (tempOn) return;
+    tempOn = true;
+    Bangle.setBarometerPower(true);
+    send("DEBUG: TEMP STARTED");
+  }
+
+  function stopTemp() {
+    if (!tempOn) return;
+    tempOn = false;
+    Bangle.setBarometerPower(false);
+    send("DEBUG: TEMP STOPPED");
+  }
+
+  function startGps (){
+    if (gpsOn) return;
+    gpsOn = true;
+    Bangle.setGPSPower(true);
+    send("DEBUG: GPS STARTED");
+  }
+
+  function stopGps (){
+    if (!gpsOn) return;
+    gpsOn = false;
+    Bangle.setGPSPower(false);
+    send("DEBUG: GPS STOPPED");
+  }
+
+  // -----------------------------
+  // AGGREGATION HELPERS
+  // -----------------------------
+  function axisAvg(arr) {
+    return {
+      x: (arr.reduce((s,v)=>s+v.x,0)/arr.length).toFixed(3),
+      y: (arr.reduce((s,v)=>s+v.y,0)/arr.length).toFixed(3),
+      z: (arr.reduce((s,v)=>s+v.z,0)/arr.length).toFixed(3)
+    };
+  }
+
+  function sendAggregatedData() {
+    const ms = Date.now() - startTime;
+
+    if (hrmBuffer.length > 0) {
+      const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
+      const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
+      send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
+      hrmBuffer = [];
     }
 
-  }, 20000);
-}
+    if (accelBuffer.length > 0) {
+      const avg = axisAvg(accelBuffer);
+      send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
+      accelBuffer = [];
+    }
 
-// ---------------- DATA COLLECTION ----------------
-function startSensors() {
-  // STEP COUNTER
-  Bangle.on("step", s => {
-    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
-    currentStepCount = s - lastTotalStepCount;
-  });
+    if (stepOn && currentStepCount > 0) {
+      const ms2 = Date.now() - startTime;
+      send(`AGG,STEPS,${ms2},${currentStepCount}`);
+      currentStepCount = 0;
+    }
 
-  // ACCELEROMETER
-  Bangle.on("accel", a => {
-    accelSum += Math.abs(a.mag - 1);
-    accelSamples++;
-  });
-}
+    if (magBuffer.length > 0) {
+      const avgM = axisAvg(magBuffer);
+      send(`AGG,MAG,${ms},${avgM.x},${avgM.y},${avgM.z}`);
+      magBuffer = [];
+    }
 
-function stopSensors() {
-  Bangle.removeAllListeners("step");
-  Bangle.removeAllListeners("accel");
-}
+    if (pressureBuffer.length > 0) {
+      const avgP = pressureBuffer.reduce((s,v)=>s+v.pressure,0)/pressureBuffer.length;
+      const avgAlt = pressureBuffer.reduce((s,v)=>s+v.altitude,0)/pressureBuffer.length;
+      const avgT = pressureBuffer.reduce((s,v)=>s+v.temperature,0)/pressureBuffer.length;
+      send(`AGG,pressure,${ms},${avgP.toFixed(2)},${avgAlt.toFixed(2)},${avgT.toFixed(2)}`);
+      pressureBuffer = [];
+    }
 
-function startLogging() {
-  if (dataTimer) clearInterval(dataTimer);
+    if (tempBuffer.length > 0) {
+      const avgT2 = tempBuffer.reduce((s,v)=>s+v.temperature,0)/tempBuffer.length;
+      send(`AGG,TEMP,${ms},${avgT2.toFixed(2)}`);
+      tempBuffer = [];
+    }
 
-  dataTimer = setInterval(() => {
-    let ts = Math.round(Date.now() / 1000);
+    if (gpsBuffer.length > 0) {
+      const avgLat = gpsBuffer.reduce((s,v)=>s+v.lat,0)/gpsBuffer.length;
+      const avgLon = gpsBuffer.reduce((s,v)=>s+v.lon,0)/gpsBuffer.length;
+      const avgAlt2 = gpsBuffer.reduce((s,v)=>s+v.alt,0)/gpsBuffer.length;
+      send(`AGG,GPS,${ms},${avgLat.toFixed(6)},${avgLon.toFixed(6)},${avgAlt2.toFixed(1)}`);
+      gpsBuffer = [];
+    }
+  }
 
-    let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
-    let accelByte = Math.min(255, Math.round(accelAvg * 100));
-
-    let batt = E.getBattery();
-
-    appendRow(ts, currentStepCount, accelByte, hr, hrConfidence, batt);
-
-    // reset
-    currentStepCount = 0;
-    accelSum = 0;
-    accelSamples = 0;
-
-    // trigger HR measurement
-    if (settings.heartRate) measureHR();
-
-  }, settings.interval * 1000);
-}
-
-function stopLogging() {
-  if (dataTimer) clearInterval(dataTimer);
-  dataTimer = undefined;
-}
-
-function startDataCollection() {
-
-  const menu = {
-    "": { "title": "Timed tests" },
-    "< Back": () => { 
-      stopLogging();
-      stopSensors();
-      showStartMenu(); 
-    },
-
-    "RECORD": {
-      value: !!settings.recording,
-      onchange: v => {
-        settings.recording = v;
-
-        if (v) {
-          // Start
-          startSensors();
-          startLogging();
-        } else {
-          // Stop
-          stopLogging();
-          stopSensors();
-        }
-
-        // Update recorder module
-        setTimeout(() => {
-          E.showMenu();
-          require("recorder").setRecording(v).then(() => {
-            loadSettings();
-            startDataCollection();
-          });
-        }, 1);
+  // -----------------------------
+  // SENSOR EVENTS (streaming)
+  // -----------------------------
+  Bangle.on("HRM", d => {
+    if (testRunning && hrmOn) {
+      if (samplingPeriod > 0) hrmBuffer.push(d);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
       }
     }
+  });
+
+  Bangle.on("accel", a => {
+    if (testRunning && accelOn) {
+      if (samplingPeriod > 0) accelBuffer.push(a);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
+      }
+    }
+  });
+
+  Bangle.on("step", s => {
+    if (!testRunning || !stepOn) return;
+
+    if (lastTotalStepCount < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
+
+    const diff = s - lastTotalStepCount;
+    if (diff < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
+
+    currentStepCount += diff;
+    lastTotalStepCount = s;
+
+    const ms = Date.now() - startTime;
+
+    if (samplingPeriod === 0) {
+      send(`DATA,STEPS,${ms},${currentStepCount}`);
+      currentStepCount = 0;
+    }
+  });
+
+  Bangle.on("MAG", m => {
+    if (testRunning && magOn) {
+      if (samplingPeriod > 0) magBuffer.push(m);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
+      }
+    }
+  });
+
+  Bangle.on("pressure", b => {
+    if (testRunning && pressureOn) {
+      if (samplingPeriod > 0) pressureBuffer.push(b);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
+      }
+    }
+
+    if (testRunning && tempOn) {
+      if (samplingPeriod > 0) tempBuffer.push(b);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
+      }
+    }
+  });
+
+  Bangle.on("GPS", g => {
+    if (testRunning && gpsOn) {
+      if (samplingPeriod > 0) gpsBuffer.push(g);
+      else {
+        const ms = Date.now() - startTime;
+        send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
+      }
+    }
+  });
+
+  // -----------------------------
+  // LOKAL LOGGNING (från testmenu.js)
+  // -----------------------------
+
+  let settings = {
+    sensors: ["steps", "accel", "hr"],
+    interval: 10,
+    filename: "mobistudy_log.csv"
   };
 
-  E.showMenu(menu);
-}
+  let isCollecting = false;
+  let logTimer = null;
+  let hrTimer = null;
+  let file = null;
+
+  let lastTotalStepCountLog = -1;
+  let currentStepCountLog = 0;
+
+  let accelSumLog = 0;
+  let accelSamplesLog = 0;
+
+  let hrLog = 0;
+  let hrConfidenceLog = 0;
+  let isMeasuringHRLog = false;
+
+  function appendRow(ts, steps, accel, hr, conf, batt) {
+    if (!file) return;
+    const line = [
+      ts,
+      steps ?? "",
+      accel ?? "",
+      hr ?? "",
+      conf ?? "",
+      batt
+    ].join(",") + "\n";
+    let f = storage.open(settings.filename, "a");
+    f.write(line);
+    f = null;
+  }
+
+  function enableStepSensorLog() {
+    Bangle.on("step", s => {
+      if (lastTotalStepCountLog < 0) lastTotalStepCountLog = s - 1;
+      currentStepCountLog = s - lastTotalStepCountLog;
+    });
+  }
+
+  function enableAccelSensorLog() {
+    Bangle.on("accel", a => {
+      accelSumLog += Math.abs(a.mag - 1);
+      accelSamplesLog++;
+    });
+  }
+
+  function measureHRLog() {
+    if (isMeasuringHRLog) return;
+
+    isMeasuringHRLog = true;
+    let samples = [];
+
+    function onHRM(e) {
+      if (e.confidence > 0 && e.bpm > 0) samples.push(e);
+    }
+
+    Bangle.on("HRM", onHRM);
+    Bangle.setHRMPower(true);
+
+    setTimeout(() => {
+      Bangle.removeListener("HRM", onHRM);
+      Bangle.setHRMPower(false);
+      isMeasuringHRLog = false;
+
+      if (samples.length === 0) {
+        hrLog = 0;
+        hrConfidenceLog = 0;
+      } else {
+        let best = samples.reduce((a, b) =>
+          b.confidence > a.confidence ? b : a
+        );
+        hrLog = best.bpm;
+        hrConfidenceLog = best.confidence;
+      }
+    }, 20000);
+  }
+
+  function startCollection() {
+    if (isCollecting) return;
+
+    isCollecting = true;
+    Bangle.buzz(300);
+
+    storage.write(
+      settings.file,
+      "timestamp, steps, accel, hr, hr_confidence, battery\n"
+    );
+
+    if (settings.sensors.includes("steps")) enableStepSensorLog();
+    if (settings.sensors.includes("accel")) enableAccelSensorLog();
+
+    if (settings.sensors.includes("hr")) {
+      measureHRLog();
+      hrTimer = setInterval(measureHRLog, 20000);
+    }
+
+    logTimer = setInterval(() => {
+      let ts = Math.round(Date.now() / 1000);
+      let batt = E.getBattery();
+
+      let accelAvg = accelSamplesLog ? (accelSumLog / accelSamplesLog) : 0;
+      let accelByte = Math.min(255, Math.round(accelAvg * 100));
+
+      appendRow(
+        ts,
+        settings.sensors.includes("steps") ? currentStepCountLog : null,
+        settings.sensors.includes("accel") ? accelByte : null,
+        settings.sensors.includes("hr") ? hrLog : null,
+        settings.sensors.includes("hr") ? hrConfidenceLog : null,
+        batt
+      );
+
+      currentStepCountLog = 0;
+      accelSumLog = 0;
+      accelSamplesLog = 0;
+
+    }, settings.interval * 1000);
+  }
+
+  function stopCollection() {
+    if (!isCollecting) return;
+
+    isCollecting = false;
+
+    if (logTimer) clearInterval(logTimer);
+    if (hrTimer) clearInterval(hrTimer);
+
+    logTimer = null;
+    hrTimer = null;
+
+    Bangle.setHRMPower(false);
+
+    if (file) {
+      file = null;
+    }
+
+    Bangle.buzz(200);
+  }
+
+  // -----------------------------
+  // BLUETOOTH COMMAND HANDLER (streaming)
+  // -----------------------------
+  Bluetooth.on("data", function(d) {
+    d.split("\n").forEach(cmd => {
+      cmd = cmd.trim();
+      if (!cmd) return;
+
+      send("DEBUG: GOT CMD " + cmd);
+
+      if (cmd === "HR_ON") startHRM();
+      if (cmd === "HR_OFF") stopHRM();
+
+      if (cmd === "ACC_ON") startAccel();
+      if (cmd === "ACC_OFF") stopAccel();
+
+      if (cmd === "STEPS_ON") startSteps();
+      if (cmd === "STEPS_OFF") stopSteps();
+
+      if (cmd === "MAG_ON") startMag();
+      if (cmd === "MAG_OFF") stopMag();
+
+      if (cmd === "pressure_ON") startPressure();
+      if (cmd === "pressure_OFF") stopPressure();
+
+      if (cmd === "TEMP_ON") startTemp();
+      if (cmd === "TEMP_OFF") stopTemp();
+
+      if (cmd === "GPS_ON") startGps();
+      if (cmd === "GPS_OFF") stopGps();
+
+      if (cmd.startsWith("SET_PERIOD")) {
+        const parts = cmd.split(",");
+        samplingPeriod = parseInt(parts[1]) || 0;
+
+        if (aggTimer) {
+          clearInterval(aggTimer);
+          aggTimer = null;
+        }
+
+        if (samplingPeriod > 0) {
+          aggTimer = setInterval(sendAggregatedData, samplingPeriod);
+          send("DEBUG: AGGREGATION ENABLED " + samplingPeriod + " ms");
+        } else {
+          send("DEBUG: AGGREGATION DISABLED");
+        }
+      }
+
+      if (cmd === "START") {
+        testRunning = true;
+        startTime = Date.now();
+        send("DEBUG: TEST STARTED");
+      }
+
+      if (cmd === "STOP") {
+        testRunning = false;
+
+        stopHRM();
+        stopAccel();
+        stopSteps();
+        stopMag();
+        stopPressure();
+        stopTemp();
+        stopGps();
+
+        if (aggTimer) {
+          clearInterval(aggTimer);
+          aggTimer = null;
+        }
+
+        send("STOPPED");
+      }
+    });
+  });
+
+  // -----------------------------
+  // MENY (Mobistudy)
+  // -----------------------------
+
+  function stopAll() {
+    stopCollection();
+
+    testRunning = false;
+    stopHRM();
+    stopAccel();
+    stopSteps();
+    stopMag();
+    stopPressure();
+    stopTemp();
+    stopGps();
+    if (aggTimer) {
+      clearInterval(aggTimer);
+      aggTimer = null;
+    }
+    E.showMessage("Stoppad");
+  }
+
+  function showLoggingMenu(){
+    E.showMenu({
+      "": { title: "Logging" },
+      "Välj sesnorer": () => showSensorList(),
+      "Start logging": () => {
+        startCollection();
+      },
+
+      "< Tillbaka": () => showMainMenu()
+
+    });
+  }
+
+  function showSensorList() {
+    let menu = {
+      "": { title: "Aktiva sensorer" },
+      "< Tillbaka": () => showMainMenu()
+    };
+
+    let allSensors = ["steps", "accel", "hr"];
+
+    allSensors.forEach(s => {
+      menu[s] = {
+        value: settings.sensors.includes(s),
+        onchange: v => {
+          if (v) {
+            if (!settings.sensors.includes(s)) settings.sensors.push(s);
+          } else {
+            settings.sensors = settings.sensors.filter(x => x !== s);
+          }
+        }
+      };
+    });
+
+    E.showMenu(menu);
+  }
+
+  function showMainMenu() {
+    testRunning = false; 
+    stopHRM();
+    stopAccel();
+    stopSteps();
+    stopMag();
+    stopPressure();
+    stopTemp();
+    stopGps();
+
+    if (aggTimer){
+      clearInterval(aggTimer);
+      aggTimer = null;
+    }
+
+    if (logTimer) clearInterval(logTimer);
+    if (hrTimer) clearInterval(hrTimer);
+
+    logTimer = null;
+    hrTimer = null;
+
+    lastTotalStepCount = -1;
+    currentStepCountLog = 0;
+    accelSumLog = 0;
+    accelSamplesLog = 0;
+
+    E.showMenu({
+      "": { title: "Mobistudy" },
+
+      "Starta streaming": () => {
+        E.showMessage("Streaming\nStyrs från webbapp");
+      },
+
+      "Logga på klockan": () => showLoggingMenu(),
+
+      "Stoppa allt": () => {
+        stopAll();
+      },
+
+      "Sensorer": () => showSensorList()
+    });
+  }
+
+  showMainMenu();
+
+  //Terminal.setConsole(true); // needs to be activated to test data streaming with webapp. 
+
+})();
 
 
 
-
-showStartMenu();
- showSettingsMenu();
