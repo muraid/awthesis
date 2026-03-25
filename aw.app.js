@@ -84,6 +84,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
  function startAccel (){
    if (accelOn) return;
    accelOn = true;
+   Bangle.on("accel", onACC);
    Bangle.setAccelPower(1);
    send("DEBUG: ACCEL STARTED");
  }
@@ -91,11 +92,10 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
  function stopAccel (){
    if (!accelOn) return;
    accelOn = false;
+   Bangle.removeListener("accel", onACC);
    Bangle.setAccelPower(0);
    send("DEBUG: ACCEL STOPPED");
  }
-
- Bangle.on("accel", onACC);
 
 
 // -----------------------------
@@ -203,6 +203,7 @@ function startCollection() {
 
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) enableStepSensor();
+  if (settings.sensors.includes("accel")) startAccel();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
