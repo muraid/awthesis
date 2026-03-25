@@ -11,9 +11,14 @@ let settings = {
   filename: "mobistudy_log.csv"
 };
 
-// ---------------- STATE ----------------
+// ---------------- STREAMING-DEL (från testapp.js) ----------------
+let hrmOn = false;
 
+
+// ---------------- STATE ----------------
 let isCollecting = false;
+let isStreaming = false;
+let aggregated = false;
 let logTimer = null;
 let hrTimer = null;
 let file = null;
@@ -27,6 +32,13 @@ let accelSamples = 0;
 let hr = 0;
 let hrConfidence = 0;
 let isMeasuringHR = false;
+
+// Aggregation variables
+let samplingPeriod = 0;
+let aggTimer = null;
+
+let hrmBuffer = [];
+
 
 // ---------------- FILE LOGGING ----------------
 
@@ -43,7 +55,80 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
   file.write(line);
 }
 
-// ---------------- SENSOR HANDLERS ----------------
+ // -----------------------------
+ // SENSOR START/STOP FUNCTIONS (streaming)
+ // -----------------------------
+ function startHRM() {
+   if (hrmOn) return;
+   hrmOn = true;
+   Bangle.on("HRM", onHRM);
+   Bangle.setHRMPower(1);
+   send("DEBUG: HRM STARTED");
+ }
+
+ function stopHRM() {
+   if (!hrmOn) return;
+   hrmOn = false;
+   Bangle.removeListener("HRM", onHRM);
+   Bangle.setHRMPower(0);
+   send("DEBUG: HRM STOPPED");
+ }
+
+// -----------------------------
+// SENSOR HANDLERS 
+// -----------------------------
+
+function onHRM(d) {
+  // --- STREAMING MODE ---
+  if (isStreaming) {
+    const ms = Date.now() - startTime;
+    send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
+  }
+
+  // --- AGGREGATED MODE ---
+  if (aggregated) {
+    hrmBuffer.push(d);
+  }
+
+  // --- 20-SECOND COLLECTION MODE ---
+  if (isCollecting) {
+    if (d.confidence > 0 && d.bpm > 0) {
+      hrmBuffer.push(d);
+    }
+  }
+}
+
+// HR-mätning
+function measureHR() {
+  if (isCollecting) return;
+
+  isCollecting = true;
+  hrmBuffer = [];
+
+  startHRM();
+
+  setTimeout(() => {
+    isCollecting = false;
+
+    if (hrmBuffer.length === 0) {
+      hr = 0;
+      hrConfidence = 0;
+    } else {
+      let best = hrmBuffer.reduce((a, b) =>
+        b.confidence > a.confidence ? b : a
+      );
+      hr = best.bpm;
+      hrConfidence = best.confidence;
+    }
+
+    // Stäng HRM endast om inget annat använder den
+    if (!isStreaming && !aggregated) {
+      stopHRM();
+    }
+
+  }, 20000);
+}
+
 
 function enableStepSensor() {
   Bangle.on("step", s => {
@@ -59,60 +144,22 @@ function enableAccelSensor() {
   });
 }
 
-// HR-mätning
-function measureHR() {
-  if (isMeasuringHR) return;
 
-  isMeasuringHR = true;
-  let samples = [];
+// -----------------------------
+// AGGREGATION HELPERS
+// -----------------------------
+function sendAggregatedData() {
+   const ms = Date.now() - startTime;
 
-  function onHRM(e) {
-    if (e.confidence > 0 && e.bpm > 0) samples.push(e);
+
+   if (hrmBuffer.length > 0) {
+     const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
+     const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
+     send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
+     hrmBuffer = [];
+   }
+
   }
-
-  Bangle.on("HRM", onHRM);
-  Bangle.setHRMPower(true);
-
-  setTimeout(() => {
-    Bangle.removeListener("HRM", onHRM);
-    Bangle.setHRMPower(false);
-    isMeasuringHR = false;
-
-    if (samples.length === 0) {
-      hr = 0;
-      hrConfidence = 0;
-    } else {
-      let best = samples.reduce((a, b) =>
-        b.confidence > a.confidence ? b : a
-      );
-      hr = best.bpm;
-      hrConfidence = best.confidence;
-    }
-  }, 20000);
-}
-
-function updateHRsensor() {
-  if (!isCollecting) return;
-
-  if (settings.sensors.includes("hr")) {
-    // HR ska vara på
-    if (!hrTimer) {
-      isMeasuringHR = false; // säkerställ att den inte fastnat
-      measureHR();
-      hrTimer = setInterval(measureHR, 20000);
-    }
-  } else {
-    // HR ska vara av
-    if (hrTimer) {
-      clearInterval(hrTimer);
-      hrTimer = null;
-    }
-    Bangle.removeAllListeners("HRM");
-    Bangle.setHRMPower(false);
-    isMeasuringHR = false;
-  }
-}
-
 
 // ---------------- DATA COLLECTION ----------------
 
@@ -184,38 +231,63 @@ function stopCollection() {
 }
 
 // Bluetooth commands - need some work, dont work as they should in espruino IDE
+ Bluetooth.on("data", function(d) {
+   d.split("\n").forEach(cmd => {
+     cmd = cmd.trim();
+     if (!cmd) return;
 
-Bluetooth.on("data", d => {
-  d = d.trim();
 
-  if (d.startsWith("SET SENSORS:")) {
-    try {
-      let json = d.replace("SET SENSORS:", "").trim();
-      let list = JSON.parse(json);
+     send("DEBUG: GOT CMD " + cmd);
 
-      if (Array.isArray(list)) {
-        settings.sensors = list;
-        Bluetooth.println("OK: Sensors updated");
-      } else {
-        Bluetooth.println("ERR: Invalid sensor list");
-      }
-    } catch (e) {
-      Bluetooth.println("ERR: JSON parse failed");
-    }
-  }
 
-  if (d === "START") {
-    startCollection();
-    Bluetooth.println("OK: Started");
-  }
+     if (cmd === "HR_ON") startHRM();
+     if (cmd === "HR_OFF") stopHRM();
 
-  if (d === "STOP") {
-    stopCollection();
-    Bluetooth.println("OK: Stopped");
-  }
-});
 
-// Menu 
+     if (cmd.startsWith("SET_PERIOD")) {
+       const parts = cmd.split(",");
+       samplingPeriod = parseInt(parts[1]) || 0;
+
+
+       if (aggTimer) {
+         clearInterval(aggTimer);
+         aggTimer = null;
+       }
+
+
+       if (samplingPeriod > 0) {
+         aggTimer = setInterval(sendAggregatedData, samplingPeriod);
+         send("DEBUG: AGGREGATION ENABLED " + samplingPeriod + " ms");
+       } else {
+         send("DEBUG: AGGREGATION DISABLED");
+       }
+     }
+
+     if (cmd === "START") {
+       isCollecting = true;
+       startTime = Date.now();
+       send("DEBUG: TEST STARTED");
+     }
+
+
+     if (cmd === "STOP") {
+       isCollecting = false;
+
+       stopHRM();
+
+       if (aggTimer) {
+         clearInterval(aggTimer);
+         aggTimer = null;
+       }
+       send("STOPPED");
+     }
+   });
+ });
+
+
+// -----------------
+// Menu
+//------------------
 function showMainMenu() {
    E.showMenu({
      "": { title: "Mobistudy" },
@@ -251,7 +323,6 @@ function showSensorList() {
         } else {
           settings.sensors = settings.sensors.filter(x => x !== s);
         }
-        updateHRsensor();
       }
     };
   });
