@@ -1,3 +1,5 @@
+(() => {
+  //Bluetooth.setConsole(false); // needs to be activated to test data streaming with webapp.
 Bangle.loadWidgets();
 Bangle.drawWidgets();
 
@@ -331,3 +333,5 @@ function showSensorList() {
  }
 
 showMainMenu();
+ //Terminal.setConsole(true); // needs to be activated to test data streaming with webapp.
+})();
