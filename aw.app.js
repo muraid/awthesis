@@ -81,7 +81,6 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    send("DEBUG: HRM STOPPED");
  }
 
- Bangle.on("accel", onACC);
  function startAccel (){
    if (accelOn) return;
    accelOn = true;
@@ -95,6 +94,8 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    Bangle.setAccelPower(0);
    send("DEBUG: ACCEL STOPPED");
  }
+
+ Bangle.on("accel", onACC);
 
 
 // -----------------------------
