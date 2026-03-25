@@ -203,6 +203,7 @@ function startCollection() {
 
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) enableStepSensor();
+  if (settings.sensors.includes("accel")) onACC();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
