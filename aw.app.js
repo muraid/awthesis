@@ -39,6 +39,10 @@ let aggTimer = null;
 
 let hrmBuffer = [];
 
+ function send(line) {
+   Bluetooth.println(line);
+ }
+
 
 // ---------------- FILE LOGGING ----------------
 
@@ -63,7 +67,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    hrmOn = true;
    Bangle.on("HRM", onHRM);
    Bangle.setHRMPower(1);
-   //send("DEBUG: HRM STARTED");
+   send("DEBUG: HRM STARTED");
  }
 
  function stopHRM() {
@@ -71,7 +75,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    hrmOn = false;
    Bangle.removeListener("HRM", onHRM);
    Bangle.setHRMPower(0);
-   //send("DEBUG: HRM STOPPED");
+   send("DEBUG: HRM STOPPED");
  }
 
 // -----------------------------
