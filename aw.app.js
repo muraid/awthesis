@@ -179,6 +179,7 @@ function startCollection() {
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
+    startHRM();
     measureHR(); // första direkt
     hrTimer = setInterval(measureHR, 20000);
   }
