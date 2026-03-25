@@ -85,12 +85,7 @@ function onHRM(d) {
     send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
   }
 
-  // --- AGGREGATED MODE ---
-  if (aggregated) {
-    hrmBuffer.push(d);
-  }
-
-  // --- 20-SECOND COLLECTION MODE ---
+//aggregated
   if (isCollecting) {
     if (d.confidence > 0 && d.bpm > 0) {
       hrmBuffer.push(d);
@@ -100,14 +95,11 @@ function onHRM(d) {
 
 // HR-mätning
 function measureHR() {
-
-  isCollecting = true;
   hrmBuffer = [];
 
   startHRM();
 
   setTimeout(() => {
-    isCollecting = false;
 
     if (hrmBuffer.length === 0) {
       hr = 0;
@@ -215,8 +207,7 @@ function stopCollection() {
 
   Bangle.removeAllListeners("step");
   Bangle.removeAllListeners("accel");
-  Bangle.removeAllListeners("HRM");
-  Bangle.setHRMPower(false);
+  stopHRM();
 
   if (file) {
     file = null; // handle stängs automatiskt
@@ -227,6 +218,7 @@ function stopCollection() {
 
 // Bluetooth commands - need some work, dont work as they should in espruino IDE
  Bluetooth.on("data", function(d) {
+  if (!isStreaming) return;
    d.split("\n").forEach(cmd => {
      cmd = cmd.trim();
      if (!cmd) return;
@@ -234,21 +226,17 @@ function stopCollection() {
 
      send("DEBUG: GOT CMD " + cmd);
 
-
      if (cmd === "HR_ON") startHRM();
      if (cmd === "HR_OFF") stopHRM();
-
 
      if (cmd.startsWith("SET_PERIOD")) {
        const parts = cmd.split(",");
        samplingPeriod = parseInt(parts[1]) || 0;
 
-
        if (aggTimer) {
          clearInterval(aggTimer);
          aggTimer = null;
        }
-
 
        if (samplingPeriod > 0) {
          aggTimer = setInterval(sendAggregatedData, samplingPeriod);
@@ -288,6 +276,7 @@ function showMainMenu() {
      "": { title: "Mobistudy" },
 
      "Starta streaming": () => {
+      isStreaming = true;
        E.showMessage("Streaming\nStyrs från webbapp");
      },
 
