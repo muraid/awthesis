@@ -91,6 +91,29 @@ function measureHR() {
   }, 20000);
 }
 
+function updateHRsensor() {
+  if (!isCollecting) return;
+
+  if (settings.sensors.includes("hr")) {
+    // HR ska vara på
+    if (!hrTimer) {
+      isMeasuringHR = false; // säkerställ att den inte fastnat
+      measureHR();
+      hrTimer = setInterval(measureHR, 20000);
+    }
+  } else {
+    // HR ska vara av
+    if (hrTimer) {
+      clearInterval(hrTimer);
+      hrTimer = null;
+    }
+    Bangle.removeAllListeners("HRM");
+    Bangle.setHRMPower(false);
+    isMeasuringHR = false;
+  }
+}
+
+
 // ---------------- DATA COLLECTION ----------------
 
 function startCollection() {
@@ -193,16 +216,23 @@ Bluetooth.on("data", d => {
 });
 
 // Menu 
-
 function showMainMenu() {
-  E.showMenu({
-    "": { title: "Mobistudy" },
+   E.showMenu({
+     "": { title: "Mobistudy" },
 
-    "Start": () => startCollection(),
-    "Stop": () => stopCollection(),
-    "Sensorer": () => showSensorList()
-  });
-}
+     "Starta streaming": () => {
+       E.showMessage("Streaming\nStyrs från webbapp");
+     },
+
+     "Logga på klockan": () => showLoggingMenu(),
+
+     "Stoppa allt": () => {
+       stopAll();
+     },
+
+     "Sensorer": () => showSensorList()
+   });
+ }
 
 function showSensorList() {
   let menu = {
@@ -221,11 +251,24 @@ function showSensorList() {
         } else {
           settings.sensors = settings.sensors.filter(x => x !== s);
         }
+        updateHRsensor();
       }
     };
   });
 
   E.showMenu(menu);
 }
+
+ function showLoggingMenu(){
+   E.showMenu({
+     "": { title: "Logging" },
+     "Välj sesnorer": () => showSensorList(),
+     "Start": () => startCollection(),
+     "Stop": () => stopCollection(),
+
+     "< Tillbaka": () => showMainMenu()
+
+   });
+ }
 
 showMainMenu();
