@@ -15,7 +15,7 @@ let settings = {
 
 // ---------------- STREAMING-DEL (från testapp.js) ----------------
 let hrmOn = false;
-
+let accelOn = false;
 
 // ---------------- STATE ----------------
 let isCollecting = false;
@@ -40,6 +40,7 @@ let samplingPeriod = 0;
 let aggTimer = null;
 
 let hrmBuffer = [];
+let accelBuffer = [];
 
  function send(line) {
    Bluetooth.println(line);
@@ -79,6 +80,23 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    Bangle.setHRMPower(0);
    send("DEBUG: HRM STOPPED");
  }
+
+ function startAccel (){
+   if (accelOn) return;
+   accelOn = true;
+   Bangle.on("ACC", onACC);
+   Bangle.setAccelPower(1);
+   send("DEBUG: ACCEL STARTED");
+ }
+
+ function stopAccel (){
+   if (!accelOn) return;
+   accelOn = false;
+   Bangle.removeListener("ACC", onACC);
+   Bangle.setAccelPower(0);
+   send("DEBUG: ACCEL STOPPED");
+ }
+
 
 // -----------------------------
 // SENSOR HANDLERS 
@@ -129,11 +147,23 @@ function enableStepSensor() {
   });
 }
 
-function enableAccelSensor() {
-  Bangle.on("accel", a => {
+function onACC(a) {
+  // --- LOGGING MODE (file logging) ---
+  if (isCollecting) {
     accelSum += Math.abs(a.mag - 1);
     accelSamples++;
-  });
+  }
+
+  // --- STREAMING MODE ---
+  if (isStreaming && accelOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
+  }
+
+  // --- AGGREGATED MODE ---
+  if (isCollecting && accelOn) {
+    accelBuffer.push(a);
+  }
 }
 
 
@@ -149,6 +179,12 @@ function sendAggregatedData() {
      const avgConf = hrmBuffer.reduce((s,v)=>s+(v.confidence||0),0) / hrmBuffer.length;
      send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
      hrmBuffer = [];
+   }
+
+   if (accelBuffer.length > 0) {
+     const avg = axisAvg(accelBuffer);
+     send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
+     accelBuffer = [];
    }
 
   }
@@ -167,7 +203,7 @@ function startCollection() {
 
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) enableStepSensor();
-  if (settings.sensors.includes("accel")) enableAccelSensor();
+  if (settings.sensors.includes("accel")) onACC();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
@@ -212,7 +248,7 @@ function stopCollection() {
   hrTimer = null;
 
   Bangle.removeAllListeners("step");
-  Bangle.removeAllListeners("accel");
+  stopAccel();
   stopHRM();
 
   if (file) {
@@ -234,6 +270,9 @@ function stopCollection() {
 
      if (cmd === "HR_ON") startHRM();
      if (cmd === "HR_OFF") stopHRM();
+
+     if (cmd === "ACC_ON") startAccel();
+     if (cmd === "ACC_OFF") stopAccel();
 
      if (cmd.startsWith("SET_PERIOD")) {
        const parts = cmd.split(",");
@@ -263,6 +302,7 @@ function stopCollection() {
        isCollecting = false;
 
        stopHRM();
+       stopAccel();
 
        if (aggTimer) {
          clearInterval(aggTimer);
