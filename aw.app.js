@@ -85,7 +85,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    if (accelOn) return;
    accelOn = true;
    Bangle.on("accel", onACC);
-   Bangle.setAccelPower(1);
+   Bangle.getAccel(1);
    send("DEBUG: ACCEL STARTED");
  }
 
@@ -93,7 +93,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    if (!accelOn) return;
    accelOn = false;
    Bangle.removeListener("accel", onACC);
-   Bangle.setAccelPower(0);
+   Bangle.getAccel(0);
    send("DEBUG: ACCEL STOPPED");
  }
 
