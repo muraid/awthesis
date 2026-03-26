@@ -40,6 +40,11 @@ let hr = 0;
 let hrConfidence = 0;
 let isMeasuringHR = false;
 
+let mag = null;
+let pressure = null;
+let temperature = null;
+let gps = null;
+
 // Aggregation variables
 let samplingPeriod = 0;
 let aggTimer = null;
