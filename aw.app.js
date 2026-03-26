@@ -32,7 +32,7 @@ let hrTimer = null;
 let file = null;
 
 let lastStepStream = -1;
-let lastStepLog = -1;
+let lastStepAgg = -1;
 let currentStepCount = 0;
 
 let accelSum = 0;
@@ -232,13 +232,13 @@ function measureHR() {
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
-    if (lastTotalStepCount < 0) {
-      lastTotalStepCount = s;
+    if (lastStepStream < 0) {
+      lastStepStream = s;
       return;
     }
 
-    const diff = s - lastTotalStepCount;
-    lastTotalStepCount = s;
+    const diff = s - lastStepStream;
+    lastStepStream = s;
 
     if (diff > 0) {
       const ms = Date.now() - startTime;
@@ -247,14 +247,14 @@ function onSTEP(s) {
   }
 
   // LOGGING (din befintliga kod)
-  if (isLogging && stepOn) {
-    if (lastTotalStepCount < 0) {
-      lastTotalStepCount = s;
+  if (isAggregated && stepOn) {
+    if (lastStepAgg < 0) {
+      lastStepAgg = s;
       return;
     }
-    const diff = s - lastTotalStepCount;
+    const diff = s - lastStepAgg;
     if (diff >= 0) currentStepCount += diff;
-    lastTotalStepCount = s;
+    lastStepAgg = s;
   }
 
   // AGGREGATION
