@@ -9,7 +9,7 @@ const storage = require("Storage");
 
 let settings = {
   sensors: ["steps", "accel", "hr"], // default
-  interval: 10,                      // seconds, for logging ON the watch
+  interval: 10,                      // seconds
   filename: "mobistudy_log.csv"
 };
 
@@ -46,7 +46,7 @@ let temperature = null;
 let gps = null;
 
 // Aggregation variables
-let samplingPeriod = 0; // seconds for logging on the web app
+let samplingPeriod = 0;
 let aggTimer = null;
 
 let hrmBuffer = [];
@@ -115,10 +115,10 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
  function startSteps (){
    if (stepOn) return;
    stepOn = true;
-   Bangle.on("step", onSTEP);
    lastStepStream = -1;
    lastStepAgg = -1;
    currentStepCount = 0;
+   Bangle.on("step", onSTEP);
    send("DEBUG: STEPS STARTED");
  }
 
@@ -233,19 +233,12 @@ function measureHR() {
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
-    if (lastStepStream < 0) {
-      lastStepStream = s;
-      return;
-    }
-
-    const diff = s - lastStepStream;
-    lastStepStream = s;
-
-    if (diff > 0) {
-      const ms = Date.now() - startTime;
-      send(`DATA,STEPS,${ms},${diff}`);
-    }
+  if (lastStepStream < 0) {
+    lastStepStream = s;   // sätter startvärdet
   }
+  const ms = Date.now() - startTime;
+  send(`DATA,STEPS,${ms},${s - lastStepStream}`);
+}
 
   // LOGGING (din befintliga kod)
   if (isAggregated && stepOn) {
@@ -256,11 +249,6 @@ function onSTEP(s) {
     const diff = s - lastStepAgg;
     if (diff >= 0) currentStepCount += diff;
     lastStepAgg = s;
-  }
-
-  // AGGREGATION
-  if (isStreaming && isAggregating && stepOn) {
-    currentStepCount++;
   }
 }
 
@@ -567,7 +555,7 @@ function intervalMenu() {
       value : settings.interval,
       min : 5, max : 190, step : 1,
       format : v => v.toString(),
-      onchange : v => { settings.interval = v; }
+      min : 1, max : 190, step : 1,
     },
     "< Back" : () => { showMainMenu(); }
   };
