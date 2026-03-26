@@ -566,7 +566,7 @@ function intervalMenu() {
       value : settings.interval,
       min : 5, max : 190, step : 1,
       format : v => v.toString(),
-      min : 1, max : 190, step : 1,
+      onchange : v => { settings.interval = v; }
     },
     "< Back" : () => { showMainMenu(); }
   };
