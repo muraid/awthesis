@@ -113,7 +113,7 @@ function appendRow(ts, steps, accel, hr, conf, mag, pressure, temp, gps, batt) {
  function startSteps (){
    if (stepOn) return;
    stepOn = true;
-   Bange.on("step", onSTEP);
+   Bangle.on("step", onSTEP);
    lastTotalStepCount = -1;
    currentStepCount = 0;
    send("DEBUG: STEPS STARTED");
@@ -187,7 +187,7 @@ function measureHR() {
 
 
 function onSTEP(s) {
-   if (!testRunning || !stepOn) return;
+   if (!isCollecting || !stepOn) return;
 
    if (lastTotalStepCount < 0) {
      lastTotalStepCount = s;
