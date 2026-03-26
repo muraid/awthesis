@@ -9,7 +9,7 @@ const storage = require("Storage");
 
 let settings = {
   sensors: ["steps", "accel", "hr"], // default
-  interval: 10,                      // seconds
+  interval: 10,                      // seconds, for logging ON the watch
   filename: "mobistudy_log.csv"
 };
 
@@ -48,7 +48,7 @@ let temperature = null;
 let gps = null;
 
 // Aggregation variables
-let samplingPeriod = 0;
+let samplingPeriod = 0; // seconds for logging on the web app
 let aggTimer = null;
 
 let hrmBuffer = [];
@@ -567,7 +567,7 @@ function intervalMenu() {
       value : settings.interval,
       min : 5, max : 190, step : 1,
       format : v => v.toString(),
-      min : 1, max : 190, step : 1,
+      onchange : v => { settings.interval = v; }
     },
     "< Back" : () => { showMainMenu(); }
   };
