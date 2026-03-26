@@ -229,22 +229,29 @@ function measureHR() {
 
 
 function onSTEP(s) {
+  // STREAMING
   if (isStreaming && stepOn) {
     const ms = Date.now() - startTime;
     send(`DATA,STEPS,${ms},${s}`);
   }
-  if (isAggregated && stepOn) {
-   if (lastTotalStepCount < 0) {
-     lastTotalStepCount = s;
-     return;
-   }
 
-
-   const diff = s - lastTotalStepCount;
-   if (diff >= 0) currentStepCount += diff;
+  // LOGGING
+  if (isLogging && stepOn) {
+    if (lastTotalStepCount < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
+    const diff = s - lastTotalStepCount;
+    if (diff >= 0) currentStepCount += diff;
     lastTotalStepCount = s;
-   }
   }
+
+  // AGGREGATION
+  if (isStreaming && isAggregating && stepOn) {
+    currentStepCount++;
+  }
+}
+
 
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
@@ -446,25 +453,25 @@ function stopCollection() {
 
      send("DEBUG: GOT CMD " + cmd);
 
-     if (cmd === "HR_ON") startHRM();
+     if (cmd === "HR_ON") {isStreaming = true; startHRM();}
      if (cmd === "HR_OFF") stopHRM();
 
-     if (cmd === "ACC_ON") startAccel();
+     if (cmd === "ACC_ON") {isStreaming = true; startAccel();}
      if (cmd === "ACC_OFF") stopAccel();
 
-     if (cmd === "STEPS_ON") startSteps();
+     if (cmd === "STEPS_ON") {isStreaming = true; startSteps();}
      if (cmd === "STEPS_OFF") stopSteps();
      
-     if (cmd === "MAG_ON") startMag();
+     if (cmd === "MAG_ON") {isStreaming = true; startMag();}
      if (cmd === "MAG_OFF") stopMag();
 
-     if (cmd === "pressure_ON") startPressure();
+     if (cmd === "pressure_ON") {isStreaming = true; startPressure();}
      if (cmd === "pressure_OFF") stopPressure();
 
-     if (cmd === "TEMP_ON") startTemp();
+     if (cmd === "TEMP_ON") {isStreaming = true; startTemp();}
      if (cmd === "TEMP_OFF") stopTemp();
 
-     if (cmd === "GPS_ON") startGps();
+     if (cmd === "GPS_ON") {isStreaming = true; startGps();}
      if (cmd === "GPS_OFF") stopGps();
 
      if (cmd.startsWith("SET_PERIOD")) {
@@ -548,7 +555,7 @@ function showSensorList() {
     "< Back": () => showMainMenu()
   };
 
-  let allSensors = ["steps", "accel", "hr", "mag"];
+  let allSensors = ["steps", "accel", "hr"];
 
   allSensors.forEach(s => {
     menu[s] = {
