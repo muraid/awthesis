@@ -8,7 +8,7 @@ const storage = require("Storage");
 // ---------------- SETTINGS ----------------
 
 let settings = {
-  sensors: ["steps", "accel", "hr", "mag"], // default
+  sensors: ["steps", "accel", "hr"], // default
   interval: 10,                      // seconds
   filename: "mobistudy_log.csv"
 };
@@ -64,7 +64,7 @@ let gpsBuffer = [];
 
 // ---------------- FILE LOGGING ----------------
 
-function appendRow(ts, steps, accel, hr, conf, mag, batt) {
+function appendRow(ts, steps, accel, hr, conf, batt) {
   if (!file) return;
   const line = [
     ts,
@@ -72,7 +72,6 @@ function appendRow(ts, steps, accel, hr, conf, mag, batt) {
     accel ?? "",
     hr ?? "",
     conf ?? "",
-    mag ?? "",
     batt
   ].join(",") + "\n";
   file.write(line);
@@ -230,30 +229,22 @@ function measureHR() {
 
 
 function onSTEP(s) {
-   if (!isAggregated || !stepOn) return;
-
+  if (isStreaming && stepOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,STEPS,${ms},${s}`);
+  }
+  if (isAggregated && stepOn) {
    if (lastTotalStepCount < 0) {
      lastTotalStepCount = s;
      return;
    }
 
+
    const diff = s - lastTotalStepCount;
-   if (diff < 0) {
-     lastTotalStepCount = s;
-     return;
-   }
-
-   currentStepCount += diff;
-   lastTotalStepCount = s;
-
-   const ms = Date.now() - startTime;
-
-   if (samplingPeriod === 0) {
-     send(`DATA,STEPS,${ms},${currentStepCount}`);
-     currentStepCount = 0;
+   if (diff >= 0) currentStepCount += diff;
+    lastTotalStepCount = s;
    }
   }
-
 
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
@@ -347,7 +338,7 @@ function sendAggregatedData() {
    }
    if (stepOn && currentStepCount > 0) {
      const ms2 = Date.now() - startTime;
-     send(`AGG,STEPS,${ms2},${currentStepCount}`);
+     send(`AGG,STEP,${ms2},${currentStepCount}`);
      currentStepCount = 0;
    }
    if (magBuffer.length > 0) {
@@ -548,6 +539,14 @@ function streamingMenu() {
 
     "Start streaming": () => {
       isStreaming = true;
+      startHRM();
+      startAccel();
+      startSteps();
+      startMag();
+      startPressure();
+      startTemp();
+      startGps();
+      startTime = Date.now();
       E.showMessage("Streaming started");
     },
 
