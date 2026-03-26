@@ -277,7 +277,7 @@ function onACC(a) {
 // Streaming
 //-------------
 
- Bangle.on("MAG", m => {
+ Bangle.on("mag", m => {
    if (isStreaming && magOn) {
      if (samplingPeriod > 0) magBuffer.push(m);
      else {
@@ -345,7 +345,7 @@ function sendAggregatedData() {
    }
    if (stepOn && currentStepCount > 0) {
      const ms2 = Date.now() - startTime;
-     send(`AGG,STEP,${ms2},${currentStepCount}`);
+     send(`AGG,STEPS,${ms2},${currentStepCount}`);
      currentStepCount = 0;
    }
    if (magBuffer.length > 0) {
