@@ -160,7 +160,7 @@ function measureHR() {
 
 
 function onSTEP(s) {
-   if (!testRunning || !stepOn) return;
+   if (!isCollecting || !stepOn) return;
 
    if (lastTotalStepCount < 0) {
      lastTotalStepCount = s;
