@@ -8,7 +8,7 @@ const storage = require("Storage");
 // ---------------- SETTINGS ----------------
 
 let settings = {
-  sensors: ["steps", "accel", "hr"], // default
+  sensors: ["steps", "accel", "hr", "mag", "pressure", "temperature", "GPS"], // default
   interval: 10,                      // seconds
   filename: "mobistudy_log.csv"
 };
@@ -17,6 +17,10 @@ let settings = {
 let hrmOn = false;
 let accelOn = false;
 let stepOn = false;
+let magOn = false;
+let pressureOn = false;
+let tempOn = false;
+let gpsOn = false;
 
 // ---------------- STATE ----------------
 let isCollecting = false;
@@ -42,6 +46,10 @@ let aggTimer = null;
 
 let hrmBuffer = [];
 let accelBuffer = [];
+let magBuffer = [];
+let pressureBuffer = [];
+let tempBuffer = [];
+let gpsBuffer = [];
 
  function send(line) {
    Bluetooth.println(line);
@@ -50,7 +58,7 @@ let accelBuffer = [];
 
 // ---------------- FILE LOGGING ----------------
 
-function appendRow(ts, steps, accel, hr, conf, batt) {
+function appendRow(ts, steps, accel, hr, conf, mag, pressure, temp, gps, batt) {
   if (!file) return;
   const line = [
     ts,
@@ -58,6 +66,10 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
     accel ?? "",
     hr ?? "",
     conf ?? "",
+    mag ?? "",
+    pressure ?? "",
+    temp ?? "",
+    gps ? `${gps.lat},${gps.lon}` : "",
     batt
   ].join(",") + "\n";
   file.write(line);
@@ -101,7 +113,7 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
  function startSteps (){
    if (stepOn) return;
    stepOn = true;
-   Bange.on("step", onSTEP)
+   Bange.on("step", onSTEP);
    lastTotalStepCount = -1;
    currentStepCount = 0;
    send("DEBUG: STEPS STARTED");
@@ -116,6 +128,21 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    send("DEBUG: STEPS STOPPED");
  }
 
+ function startMag (){
+   if (magOn) return;
+   magOn = true;
+   Bangle.on("mag", onMAG);
+   Bangle.setCompassPower(true);
+   send("DEBUG: MAG STARTED");
+ }
+
+ function stopMag (){
+   if (!magOn) return;
+   magOn = false;
+   Bangle.removeListener("mag", onMAG);
+   Bangle.setCompassPower(false);
+   send("DEBUG: MAG STOPPED");
+ }
 
 // -----------------------------
 // SENSOR HANDLERS 
@@ -204,6 +231,18 @@ function onACC(a) {
   }
 }
 
+function onMAG(m) {
+  // --- STREAMING MODE ---
+  if (isStreaming && magOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
+  }
+
+  //--- AGGREGATED MODE ---
+  if (isCollecting && magOn) {
+    magBuffer.push(m);
+  }
+}
 
 // -----------------------------
 // AGGREGATION HELPERS
@@ -230,6 +269,11 @@ function sendAggregatedData() {
      send(`AGG,STEPS,${ms2},${currentStepCount}`);
      currentStepCount = 0;
    }
+   if (magBuffer.length > 0) {
+     const avgM = axisAvg(magBuffer);
+     send(`AGG,MAG,${ms},${avgM.x},${avgM.y},${avgM.z}`);
+     magBuffer = [];
+   }
 
   }
 
@@ -248,6 +292,7 @@ function startCollection() {
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) startSteps();
   if (settings.sensors.includes("accel")) startAccel();
+  if (settings.sensors.includes("mag")) startMag();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
@@ -270,6 +315,7 @@ function startCollection() {
       settings.sensors.includes("accel") ? accelByte : null,
       settings.sensors.includes("hr") ? hr : null,
       settings.sensors.includes("hr") ? hrConfidence : null,
+      settings.sensors.includes("mag") ? mag : null,
       batt
     );
 
@@ -294,6 +340,7 @@ function stopCollection() {
   stopSteps();
   stopAccel();
   stopHRM();
+  stopMag();
 
   if (file) {
     file = null; // handle stängs automatiskt
@@ -320,6 +367,9 @@ function stopCollection() {
 
      if (cmd === "STEPS_ON") startSteps();
      if (cmd === "STEPS_OFF") stopSteps();
+     
+     if (cmd === "MAG_ON") startMag();
+     if (cmd === "MAG_OFF") stopMag();
 
      if (cmd.startsWith("SET_PERIOD")) {
        const parts = cmd.split(",");
@@ -351,6 +401,7 @@ function stopCollection() {
        stopHRM();
        stopAccel();
        stopSteps();
+       stopMag();
 
        if (aggTimer) {
          clearInterval(aggTimer);
@@ -386,9 +437,9 @@ function streamingMenu() {
   E.showMenu({
     "": { title: "Streaming" },
 
-    "Starta streaming": () => {
+    "Start streaming": () => {
       isStreaming = true;
-      E.showMessage("Streaming startad");
+      E.showMessage("Streaming started");
     },
 
     "< Back": () => showMainMenu()
@@ -402,7 +453,7 @@ function showSensorList() {
     "< Back": () => showMainMenu()
   };
 
-  let allSensors = ["steps", "accel", "hr"];
+  let allSensors = ["steps", "accel", "hr", "mag", "pressure", "temperature", "GPS"];
 
   allSensors.forEach(s => {
     menu[s] = {
