@@ -1,0 +1,5 @@
+require("Storage").write("aw.info",{
+  "id":"aw",
+  "name":"AW app",
+  "src":"aw.app.js"
+});
