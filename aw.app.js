@@ -439,7 +439,6 @@ function stopCollection() {
 
 // Bluetooth commands - need some work, dont work as they should in espruino IDE
  Bluetooth.on("data", function(d) {
-  if (!isStreaming) return;
    d.split("\n").forEach(cmd => {
      cmd = cmd.trim();
      if (!cmd) return;
