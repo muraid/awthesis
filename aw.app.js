@@ -31,7 +31,8 @@ let logTimer = null;
 let hrTimer = null;
 let file = null;
 
-let lastTotalStepCount = -1;
+let lastStepStream = -1;
+let lastStepLog = -1;
 let currentStepCount = 0;
 
 let accelSum = 0;
@@ -558,6 +559,20 @@ function showMainMenu() {
    });
  }
 
+function intervalMenu() {
+  const menu = {
+    "" : { title : "Sampling Interval" },
+    "Value" : {
+      value : settings.interval,
+      min : 5, max : 190, step : 1,
+      format : v => v.toString(),
+      min : 1, max : 190, step : 1,
+    },
+    "< Back" : () => { showMainMenu(); }
+  };
+  E.showMenu(menu);
+}
+
 
 function showSensorList() {
   let menu = {
@@ -587,6 +602,7 @@ function showSensorList() {
    E.showMenu({
      "": { title: "Logging" },
      "Choose sensors": () => showSensorList(),
+     "Set Interval": () => intervalMenu(),
      "Start": () => startCollection(),
      "Stop": () => stopCollection(),
 
