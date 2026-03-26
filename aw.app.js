@@ -9,7 +9,7 @@ const storage = require("Storage");
 
 let settings = {
   sensors: ["steps", "accel", "hr"], // default
-  interval: 10,                      // seconds, for logging ON the watch
+  interval: 10,                      // seconds
   filename: "mobistudy_log.csv"
 };
 
@@ -34,7 +34,6 @@ let file = null;
 let lastStepStream = -1;
 let lastStepAgg = -1;
 let currentStepCount = 0;
-let stepStartValue = -1;
 
 let accelSum = 0;
 let accelSamples = 0;
@@ -48,7 +47,7 @@ let temperature = null;
 let gps = null;
 
 // Aggregation variables
-let samplingPeriod = 0; // seconds for logging on the web app
+let samplingPeriod = 0;
 let aggTimer = null;
 
 let hrmBuffer = [];
@@ -117,10 +116,10 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
  function startSteps (){
    if (stepOn) return;
    stepOn = true;
-   Bangle.on("step", onSTEP);
    lastStepStream = -1;
    lastStepAgg = -1;
    currentStepCount = 0;
+   Bangle.on("step", onSTEP);
    send("DEBUG: STEPS STARTED");
  }
 
@@ -235,17 +234,12 @@ function measureHR() {
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
-
-    // Sätt startvärdet första gången
-    if (stepStartValue < 0) {
-      stepStartValue = s;
-    }
-
-    const ms = Date.now() - startTime;
-    const totalSteps = s - stepStartValue;
-
-    send(`DATA,STEPS,${ms},${totalSteps}`);
+  if (lastStepStream < 0) {
+    lastStepStream = s;   // sätter startvärdet
   }
+  const ms = Date.now() - startTime;
+  send(`DATA,STEPS,${ms},${s - lastStepStream}`);
+}
 
   // LOGGING (din befintliga kod)
   if (isAggregated && stepOn) {
@@ -256,11 +250,6 @@ function onSTEP(s) {
     const diff = s - lastStepAgg;
     if (diff >= 0) currentStepCount += diff;
     lastStepAgg = s;
-  }
-
-  // AGGREGATION
-  if (isStreaming && isAggregating && stepOn) {
-    currentStepCount++;
   }
 }
 
@@ -567,7 +556,7 @@ function intervalMenu() {
       value : settings.interval,
       min : 5, max : 190, step : 1,
       format : v => v.toString(),
-      onchange : v => { settings.interval = v; }
+      min : 1, max : 190, step : 1,
     },
     "< Back" : () => { showMainMenu(); }
   };
