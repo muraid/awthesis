@@ -520,7 +520,9 @@ function showMainMenu() {
    E.showMenu({
      "": { title: "AW app" },
 
-     "Start streaming": () => streamingMenu(),
+     "Starta streaming": () => {
+       E.showMessage("Streaming\nStyrs från webbapp");
+     },
 
      "Logg on the watch": () => showLoggingMenu(),
 
@@ -531,28 +533,6 @@ function showMainMenu() {
      "Sensors": () => showSensorList()
    });
  }
-
-
-function streamingMenu() {
-  E.showMenu({
-    "": { title: "Streaming" },
-
-    "Start streaming": () => {
-      isStreaming = true;
-      startHRM();
-      startAccel();
-      startSteps();
-      startMag();
-      startPressure();
-      startTemp();
-      startGps();
-      startTime = Date.now();
-      E.showMessage("Streaming started");
-    },
-
-    "< Back": () => showMainMenu()
-  });
-}
 
 
 function showSensorList() {
