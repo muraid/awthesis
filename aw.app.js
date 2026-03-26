@@ -231,11 +231,21 @@ function measureHR() {
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
-    const ms = Date.now() - startTime;
-    send(`DATA,STEPS,${ms},${s}`);
+    if (lastTotalStepCount < 0) {
+      lastTotalStepCount = s;
+      return;
+    }
+
+    const diff = s - lastTotalStepCount;
+    lastTotalStepCount = s;
+
+    if (diff > 0) {
+      const ms = Date.now() - startTime;
+      send(`DATA,STEPS,${ms},${diff}`);
+    }
   }
 
-  // LOGGING
+  // LOGGING (din befintliga kod)
   if (isLogging && stepOn) {
     if (lastTotalStepCount < 0) {
       lastTotalStepCount = s;
