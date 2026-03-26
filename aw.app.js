@@ -485,9 +485,17 @@ function stopCollection() {
      }
 
      if (cmd === "START") {
-       isAggregated = true;
+       isStreaming = true;
+       isAggregated = false;
        startTime = Date.now();
-       send("DEBUG: TEST STARTED");
+       if (hrmOn) startHRM();
+       if (accelOn) startAccel();
+      if (stepOn) startSteps();
+        if (magOn) startMag();
+        if (pressureOn) startPressure();
+        if (tempOn) startTemp();
+        if (gpsOn) startGps();
+            send("DEBUG: TEST STARTED");
      }
 
 
