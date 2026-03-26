@@ -34,6 +34,7 @@ let file = null;
 let lastStepStream = -1;
 let lastStepAgg = -1;
 let currentStepCount = 0;
+let stepStartValue = -1;
 
 let accelSum = 0;
 let accelSamples = 0;
@@ -234,18 +235,16 @@ function measureHR() {
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
-    if (lastStepStream < 0) {
-      lastStepStream = s;
-      return;
+
+    // Sätt startvärdet första gången
+    if (stepStartValue < 0) {
+      stepStartValue = s;
     }
 
-    const diff = s - lastStepStream;
-    lastStepStream = s;
+    const ms = Date.now() - startTime;
+    const totalSteps = s - stepStartValue;
 
-    if (diff > 0) {
-      const ms = Date.now() - startTime;
-      send(`DATA,STEPS,${ms},${diff}`);
-    }
+    send(`DATA,STEPS,${ms},${totalSteps}`);
   }
 
   // LOGGING (din befintliga kod)
