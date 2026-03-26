@@ -18,6 +18,9 @@ let hrmOn = false;
 let accelOn = false;
 let stepOn = false;
 let magOn = false;
+let pressureOn = false;
+let tempOn = false;
+let gpsOn = false;
 
 
 // ---------------- STATE ----------------
@@ -48,6 +51,9 @@ let aggTimer = null;
 let hrmBuffer = [];
 let accelBuffer = [];
 let magBuffer = [];
+let pressureBuffer = [];
+let tempBuffer = [];
+let gpsBuffer = [];
 
 
  function send(line) {
@@ -127,7 +133,6 @@ function appendRow(ts, steps, accel, hr, conf, mag, batt) {
  function startMag (){
    if (magOn) return;
    magOn = true;
-   Bangle.on("mag", onMAG);
    Bangle.setCompassPower(true);
    send("DEBUG: MAG STARTED");
  }
@@ -135,9 +140,50 @@ function appendRow(ts, steps, accel, hr, conf, mag, batt) {
  function stopMag (){
    if (!magOn) return;
    magOn = false;
-   Bangle.removeListener("mag", onMAG);
    Bangle.setCompassPower(false);
    send("DEBUG: MAG STOPPED");
+ }
+
+  function startPressure (){
+   if (pressureOn) return;
+   pressureOn = true;
+   Bangle.setBarometerPower(true);
+   send("DEBUG: BAR STARTED");
+ }
+
+ function stopPressure (){
+   if (!pressureOn) return;
+   pressureOn = false;
+   Bangle.setBarometerPower(false);
+   send("DEBUG: BAR STOPPED");
+ }
+
+ function startTemp() {
+   if (tempOn) return;
+   tempOn = true;
+   Bangle.setBarometerPower(true);
+   send("DEBUG: TEMP STARTED");
+ }
+
+ function stopTemp() {
+   if (!tempOn) return;
+   tempOn = false;
+   Bangle.setBarometerPower(false);
+   send("DEBUG: TEMP STOPPED");
+ }
+
+ function startGps (){
+   if (gpsOn) return;
+   gpsOn = true;
+   Bangle.setGPSPower(true);
+   send("DEBUG: GPS STARTED");
+ }
+
+ function stopGps (){
+   if (!gpsOn) return;
+   gpsOn = false;
+   Bangle.setGPSPower(false);
+   send("DEBUG: GPS STOPPED");
  }
 
 // -----------------------------
@@ -227,26 +273,65 @@ function onACC(a) {
   }
 }
 
-function onMAG(m) {
-  // --- STREAMING MODE ---
-  if (isStreaming && magOn) {
-    const ms = Date.now() - startTime;
-    send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
-  }
 
-  //--- AGGREGATED MODE ---
-  if (isAggregated && magOn) {
-    mag = `${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`
-    magBuffer.push(m);
-  }
-}
+//-------------
+// Streaming
+//-------------
+
+ Bangle.on("MAG", m => {
+   if (isStreaming && magOn) {
+     if (samplingPeriod > 0) magBuffer.push(m);
+     else {
+       const ms = Date.now() - startTime;
+       send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
+     }
+   }
+ });
+
+
+ Bangle.on("pressure", b => {
+   if (isStreaming && pressureOn) {
+     if (samplingPeriod > 0) pressureBuffer.push(b);
+     else {
+       const ms = Date.now() - startTime;
+       send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
+     }
+   }
+
+
+   if (isStreaming && tempOn) {
+     if (samplingPeriod > 0) tempBuffer.push(b);
+     else {
+       const ms = Date.now() - startTime;
+       send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
+     }
+   }
+ });
+
+
+ Bangle.on("GPS", g => {
+   if (isStreaming && gpsOn) {
+     if (samplingPeriod > 0) gpsBuffer.push(g);
+     else {
+       const ms = Date.now() - startTime;
+       send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
+     }
+   }
+ });
 
 // -----------------------------
 // AGGREGATION HELPERS
 // -----------------------------
+function axisAvg(arr) {
+   return {
+     x: (arr.reduce((s,v)=>s+v.x,0)/arr.length).toFixed(3),
+     y: (arr.reduce((s,v)=>s+v.y,0)/arr.length).toFixed(3),
+     z: (arr.reduce((s,v)=>s+v.z,0)/arr.length).toFixed(3)
+   };
+ }
+
 function sendAggregatedData() {
    const ms = Date.now() - startTime;
-
 
    if (hrmBuffer.length > 0) {
      const avgBpm = hrmBuffer.reduce((s,v)=>s+v.bpm,0) / hrmBuffer.length;
@@ -254,13 +339,11 @@ function sendAggregatedData() {
      send(`AGG,HR,${ms},${avgBpm.toFixed(1)},${avgConf.toFixed(1)}`);
      hrmBuffer = [];
    }
-
    if (accelBuffer.length > 0) {
      const avg = axisAvg(accelBuffer);
      send(`AGG,ACC,${ms},${avg.x},${avg.y},${avg.z}`);
      accelBuffer = [];
    }
-
    if (stepOn && currentStepCount > 0) {
      const ms2 = Date.now() - startTime;
      send(`AGG,STEPS,${ms2},${currentStepCount}`);
@@ -271,7 +354,25 @@ function sendAggregatedData() {
      send(`AGG,MAG,${ms},${avgM.x},${avgM.y},${avgM.z}`);
      magBuffer = [];
    }
-
+   if (pressureBuffer.length > 0) {
+     const avgP = pressureBuffer.reduce((s,v)=>s+v.pressure,0)/pressureBuffer.length;
+     const avgAlt = pressureBuffer.reduce((s,v)=>s+v.altitude,0)/pressureBuffer.length;
+     const avgT = pressureBuffer.reduce((s,v)=>s+v.temperature,0)/pressureBuffer.length;
+     send(`AGG,pressure,${ms},${avgP.toFixed(2)},${avgAlt.toFixed(2)},${avgT.toFixed(2)}`);
+     pressureBuffer = [];
+   }
+   if (tempBuffer.length > 0) {
+     const avgT2 = tempBuffer.reduce((s,v)=>s+v.temperature,0)/tempBuffer.length;
+     send(`AGG,TEMP,${ms},${avgT2.toFixed(2)}`);
+     tempBuffer = [];
+   }
+   if (gpsBuffer.length > 0) {
+     const avgLat = gpsBuffer.reduce((s,v)=>s+v.lat,0)/gpsBuffer.length;
+     const avgLon = gpsBuffer.reduce((s,v)=>s+v.lon,0)/gpsBuffer.length;
+     const avgAlt2 = gpsBuffer.reduce((s,v)=>s+v.alt,0)/gpsBuffer.length;
+     send(`AGG,GPS,${ms},${avgLat.toFixed(6)},${avgLon.toFixed(6)},${avgAlt2.toFixed(1)}`);
+     gpsBuffer = [];
+   }
   }
 
 // ---------------- DATA COLLECTION ----------------
@@ -289,7 +390,6 @@ function startCollection() {
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) startSteps();
   if (settings.sensors.includes("accel")) startAccel();
-  if (settings.sensors.includes("mag")) startMag();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
@@ -313,7 +413,6 @@ function startCollection() {
       settings.sensors.includes("accel") ? accelByte : null,
       settings.sensors.includes("hr") ? hr : null,
       settings.sensors.includes("hr") ? hrConfidence : null,
-      settings.sensors.includes("mag") ? mag : null,
       batt
     );
 
@@ -338,7 +437,6 @@ function stopCollection() {
   stopSteps();
   stopAccel();
   stopHRM();
-  stopMag();
 
   if (file) {
     file.close(); // handle stängs automatiskt
@@ -368,6 +466,15 @@ function stopCollection() {
      
      if (cmd === "MAG_ON") startMag();
      if (cmd === "MAG_OFF") stopMag();
+
+     if (cmd === "pressure_ON") startPressure();
+     if (cmd === "pressure_OFF") stopPressure();
+
+     if (cmd === "TEMP_ON") startTemp();
+     if (cmd === "TEMP_OFF") stopTemp();
+
+     if (cmd === "GPS_ON") startGps();
+     if (cmd === "GPS_OFF") stopGps();
 
      if (cmd.startsWith("SET_PERIOD")) {
        const parts = cmd.split(",");
@@ -400,6 +507,9 @@ function stopCollection() {
        stopAccel();
        stopSteps();
        stopMag();
+       stopPressure();
+       stopTemp();
+       stopGps();
 
        if (aggTimer) {
          clearInterval(aggTimer);
