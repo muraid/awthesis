@@ -23,9 +23,8 @@ let tempOn = false;
 let gpsOn = false;
 
 // ---------------- STATE ----------------
-let isCollecting = false;
+let isAggregated = false;
 let isStreaming = false;
-let aggregated = false;
 let logTimer = null;
 let hrTimer = null;
 let file = null;
@@ -40,7 +39,6 @@ let hr = 0;
 let hrConfidence = 0;
 let isMeasuringHR = false;
 
-let mag = null;
 let pressure = null;
 let temperature = null;
 let gps = null;
@@ -161,7 +159,7 @@ function onHRM(d) {
   }
 
 //aggregated
-  if (isCollecting) {
+  if (isAggregated) {
     if (d.confidence > 0 && d.bpm > 0) {
       hrmBuffer.push(d);
     }
@@ -192,7 +190,7 @@ function measureHR() {
 
 
 function onSTEP(s) {
-   if (!isCollecting || !stepOn) return;
+   if (!isAggregated || !stepOn) return;
 
    if (lastTotalStepCount < 0) {
      lastTotalStepCount = s;
@@ -219,7 +217,7 @@ function onSTEP(s) {
 
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
-  if (isCollecting) {
+  if (isAggregated) {
     accelSum += Math.abs(a.mag - 1);
     accelSamples++;
   }
@@ -231,7 +229,7 @@ function onACC(a) {
   }
 
   // --- AGGREGATED MODE ---
-  if (isCollecting && accelOn) {
+  if (isAggregated && accelOn) {
     accelBuffer.push(a);
   }
 }
@@ -244,7 +242,7 @@ function onMAG(m) {
   }
 
   //--- AGGREGATED MODE ---
-  if (isCollecting && magOn) {
+  if (isAggregated && magOn) {
     magBuffer.push(m);
   }
 }
@@ -285,9 +283,9 @@ function sendAggregatedData() {
 // ---------------- DATA COLLECTION ----------------
 
 function startCollection() {
-  if (isCollecting) return;
+  if (isAggregated) return;
 
-  isCollecting = true;
+  isAggregated = true;
   Bangle.buzz(300);
 
   // Skapa/öppna fil (w = overwrite, sedan bara append med file.write)
@@ -313,6 +311,7 @@ function startCollection() {
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
     let accelByte = Math.min(255, Math.round(accelAvg * 100));
+    let magAvg = magBuffer.length > 0 ? axisAvg(magBuffer) : {x:0,y:0,z:0};
 
     appendRow(
       ts,
@@ -320,7 +319,10 @@ function startCollection() {
       settings.sensors.includes("accel") ? accelByte : null,
       settings.sensors.includes("hr") ? hr : null,
       settings.sensors.includes("hr") ? hrConfidence : null,
-      settings.sensors.includes("mag") ? mag : null,
+      settings.sensors.includes("mag") ? `${magAvg.x},${magAvg.y},${magAvg.z}` : null,
+      settings.sensors.includes("pressure") ? pressure : null,
+      settings.sensors.includes("temperature") ? temperature : null,
+      settings.sensors.includes("gps") ? gps : null,
       batt
     );
 
@@ -332,9 +334,9 @@ function startCollection() {
 }
 
 function stopCollection() {
-  if (!isCollecting) return;
+  if (!isAggregated) return;
 
-  isCollecting = false;
+  isAggregated = false;
 
   if (logTimer) clearInterval(logTimer);
   if (hrTimer) clearInterval(hrTimer);
@@ -394,14 +396,14 @@ function stopCollection() {
      }
 
      if (cmd === "START") {
-       isCollecting = true;
+       isAggregated = true;
        startTime = Date.now();
        send("DEBUG: TEST STARTED");
      }
 
 
      if (cmd === "STOP") {
-       isCollecting = false;
+       isAggregated = false;
 
        stopHRM();
        stopAccel();
