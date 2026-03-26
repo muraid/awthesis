@@ -16,6 +16,7 @@ let settings = {
 // ---------------- STREAMING-DEL (från testapp.js) ----------------
 let hrmOn = false;
 let accelOn = false;
+let stepOn = false;
 
 // ---------------- STATE ----------------
 let isCollecting = false;
@@ -97,6 +98,24 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    send("DEBUG: ACCEL STOPPED");
  }
 
+ function startSteps (){
+   if (stepOn) return;
+   stepOn = true;
+   Bange.on("step", onSTEP)
+   lastTotalStepCount = -1;
+   currentStepCount = 0;
+   send("DEBUG: STEPS STARTED");
+ }
+
+ function stopSteps (){
+   if (!stepOn) return;
+   stepOn = false;
+   Bangle.removeListener("step", onSTEP);
+   lastTotalStepCount = -1;
+   currentStepCount = 0;
+   send("DEBUG: STEPS STOPPED");
+ }
+
 
 // -----------------------------
 // SENSOR HANDLERS 
@@ -140,12 +159,31 @@ function measureHR() {
 }
 
 
-function enableStepSensor() {
-  Bangle.on("step", s => {
-    if (lastTotalStepCount < 0) lastTotalStepCount = s - 1;
-    currentStepCount = s - lastTotalStepCount;
-  });
-}
+function onSTEP(s) {
+   if (!testRunning || !stepOn) return;
+
+   if (lastTotalStepCount < 0) {
+     lastTotalStepCount = s;
+     return;
+   }
+
+   const diff = s - lastTotalStepCount;
+   if (diff < 0) {
+     lastTotalStepCount = s;
+     return;
+   }
+
+   currentStepCount += diff;
+   lastTotalStepCount = s;
+
+   const ms = Date.now() - startTime;
+
+   if (samplingPeriod === 0) {
+     send(`DATA,STEPS,${ms},${currentStepCount}`);
+     currentStepCount = 0;
+   }
+  }
+
 
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
@@ -187,6 +225,12 @@ function sendAggregatedData() {
      accelBuffer = [];
    }
 
+   if (stepOn && currentStepCount > 0) {
+     const ms2 = Date.now() - startTime;
+     send(`AGG,STEPS,${ms2},${currentStepCount}`);
+     currentStepCount = 0;
+   }
+
   }
 
 // ---------------- DATA COLLECTION ----------------
@@ -202,7 +246,7 @@ function startCollection() {
   file.write("timestamp,steps,accel,hr,hr_confidence,battery\n");
 
   // Turn on chosen sensors
-  if (settings.sensors.includes("steps")) enableStepSensor();
+  if (settings.sensors.includes("steps")) startSteps();
   if (settings.sensors.includes("accel")) startAccel();
 
   // HR-timer starts separatly
@@ -247,7 +291,7 @@ function stopCollection() {
   logTimer = null;
   hrTimer = null;
 
-  Bangle.removeAllListeners("step");
+  stopSteps();
   stopAccel();
   stopHRM();
 
@@ -273,6 +317,9 @@ function stopCollection() {
 
      if (cmd === "ACC_ON") startAccel();
      if (cmd === "ACC_OFF") stopAccel();
+
+     if (cmd === "STEPS_ON") startSteps();
+     if (cmd === "STEPS_OFF") stopSteps();
 
      if (cmd.startsWith("SET_PERIOD")) {
        const parts = cmd.split(",");
@@ -303,6 +350,7 @@ function stopCollection() {
 
        stopHRM();
        stopAccel();
+       stopSteps();
 
        if (aggTimer) {
          clearInterval(aggTimer);
@@ -319,27 +367,39 @@ function stopCollection() {
 //------------------
 function showMainMenu() {
    E.showMenu({
-     "": { title: "Mobistudy" },
+     "": { title: "AW app" },
 
-     "Starta streaming": () => {
-      isStreaming = true;
-       E.showMessage("Streaming\nStyrs från webbapp");
+     "Start streaming": () => streamingMenu(),
+
+     "Logg on the watch": () => showLoggingMenu(),
+
+     "Stopp all": () => {
+       stopCollection();
      },
 
-     "Logga på klockan": () => showLoggingMenu(),
-
-     "Stoppa allt": () => {
-       stopAll();
-     },
-
-     "Sensorer": () => showSensorList()
+     "Sensors": () => showSensorList()
    });
  }
 
+
+function streamingMenu() {
+  E.showMenu({
+    "": { title: "Streaming" },
+
+    "Starta streaming": () => {
+      isStreaming = true;
+      E.showMessage("Streaming startad");
+    },
+
+    "< Back": () => showMainMenu()
+  });
+}
+
+
 function showSensorList() {
   let menu = {
-    "": { title: "Aktiva sensorer" },
-    "< Tillbaka": () => showMainMenu()
+    "": { title: "Active sensors" },
+    "< Back": () => showMainMenu()
   };
 
   let allSensors = ["steps", "accel", "hr"];
@@ -363,11 +423,11 @@ function showSensorList() {
  function showLoggingMenu(){
    E.showMenu({
      "": { title: "Logging" },
-     "Välj sesnorer": () => showSensorList(),
+     "Choose sensors": () => showSensorList(),
      "Start": () => startCollection(),
      "Stop": () => stopCollection(),
 
-     "< Tillbaka": () => showMainMenu()
+     "< Back": () => showMainMenu()
 
    });
  }
