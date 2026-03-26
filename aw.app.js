@@ -21,6 +21,7 @@ let magOn = false;
 
 
 // ---------------- STATE ----------------
+let startTime = 0;
 let isAggregated = false;
 let isStreaming = false;
 let logTimer = null;
