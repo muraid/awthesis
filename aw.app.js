@@ -40,7 +40,6 @@ let accelSamples = 0;
 
 let hr = 0;
 let hrConfidence = 0;
-let isMeasuringHR = false;
 
 let pressure = null;
 let temperature = null;
