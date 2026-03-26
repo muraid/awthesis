@@ -453,25 +453,25 @@ function stopCollection() {
 
      send("DEBUG: GOT CMD " + cmd);
 
-     if (cmd === "HR_ON") {isStreaming = true; startHRM();}
+     if (cmd === "HR_ON") startHRM();
      if (cmd === "HR_OFF") stopHRM();
 
-     if (cmd === "ACC_ON") {isStreaming = true; startAccel();}
+     if (cmd === "ACC_ON") startAccel();
      if (cmd === "ACC_OFF") stopAccel();
 
-     if (cmd === "STEPS_ON") {isStreaming = true; startSteps();}
+     if (cmd === "STEPS_ON") startSteps();
      if (cmd === "STEPS_OFF") stopSteps();
      
-     if (cmd === "MAG_ON") {isStreaming = true; startMag();}
+     if (cmd === "MAG_ON") startMag();
      if (cmd === "MAG_OFF") stopMag();
 
-     if (cmd === "pressure_ON") {isStreaming = true; startPressure();}
+     if (cmd === "pressure_ON") startPressure();
      if (cmd === "pressure_OFF") stopPressure();
 
-     if (cmd === "TEMP_ON") {isStreaming = true; startTemp();}
+     if (cmd === "TEMP_ON") startTemp();
      if (cmd === "TEMP_OFF") stopTemp();
 
-     if (cmd === "GPS_ON") {isStreaming = true; startGps();}
+     if (cmd === "GPS_ON") startGps();
      if (cmd === "GPS_OFF") stopGps();
 
      if (cmd.startsWith("SET_PERIOD")) {
