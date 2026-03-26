@@ -8,7 +8,7 @@ const storage = require("Storage");
 // ---------------- SETTINGS ----------------
 
 let settings = {
-  sensors: ["steps", "accel", "hr", "mag", "pressure", "temperature", "GPS"], // default
+  sensors: ["steps", "accel", "hr", "mag"], // default
   interval: 10,                      // seconds
   filename: "mobistudy_log.csv"
 };
@@ -18,9 +18,7 @@ let hrmOn = false;
 let accelOn = false;
 let stepOn = false;
 let magOn = false;
-let pressureOn = false;
-let tempOn = false;
-let gpsOn = false;
+
 
 // ---------------- STATE ----------------
 let isAggregated = false;
@@ -50,9 +48,7 @@ let aggTimer = null;
 let hrmBuffer = [];
 let accelBuffer = [];
 let magBuffer = [];
-let pressureBuffer = [];
-let tempBuffer = [];
-let gpsBuffer = [];
+
 
  function send(line) {
    Bluetooth.println(line);
@@ -61,7 +57,7 @@ let gpsBuffer = [];
 
 // ---------------- FILE LOGGING ----------------
 
-function appendRow(ts, steps, accel, hr, conf, mag, pressure, temp, gps, batt) {
+function appendRow(ts, steps, accel, hr, conf, mag, batt) {
   if (!file) return;
   const line = [
     ts,
@@ -70,9 +66,6 @@ function appendRow(ts, steps, accel, hr, conf, mag, pressure, temp, gps, batt) {
     hr ?? "",
     conf ?? "",
     mag ?? "",
-    pressure ?? "",
-    temp ?? "",
-    gps ? `${gps.lat},${gps.lon}` : "",
     batt
   ].join(",") + "\n";
   file.write(line);
@@ -243,6 +236,7 @@ function onMAG(m) {
 
   //--- AGGREGATED MODE ---
   if (isAggregated && magOn) {
+    mag = `${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`
     magBuffer.push(m);
   }
 }
@@ -311,7 +305,7 @@ function startCollection() {
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
     let accelByte = Math.min(255, Math.round(accelAvg * 100));
-    let magAvg = magBuffer.length > 0 ? axisAvg(magBuffer) : {x:0,y:0,z:0};
+    
 
     appendRow(
       ts,
@@ -319,10 +313,7 @@ function startCollection() {
       settings.sensors.includes("accel") ? accelByte : null,
       settings.sensors.includes("hr") ? hr : null,
       settings.sensors.includes("hr") ? hrConfidence : null,
-      settings.sensors.includes("mag") ? `${magAvg.x},${magAvg.y},${magAvg.z}` : null,
-      settings.sensors.includes("pressure") ? pressure : null,
-      settings.sensors.includes("temperature") ? temperature : null,
-      settings.sensors.includes("gps") ? gps : null,
+      settings.sensors.includes("mag") ? mag : null,
       batt
     );
 
@@ -350,7 +341,7 @@ function stopCollection() {
   stopMag();
 
   if (file) {
-    file = null; // handle stängs automatiskt
+    file.close(); // handle stängs automatiskt
   }
 
   Bangle.buzz(200);
@@ -460,7 +451,7 @@ function showSensorList() {
     "< Back": () => showMainMenu()
   };
 
-  let allSensors = ["steps", "accel", "hr", "mag", "pressure", "temperature", "GPS"];
+  let allSensors = ["steps", "accel", "hr", "mag"];
 
   allSensors.forEach(s => {
     menu[s] = {
