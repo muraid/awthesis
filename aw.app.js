@@ -117,7 +117,8 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    if (stepOn) return;
    stepOn = true;
    Bangle.on("step", onSTEP);
-   lastTotalStepCount = -1;
+   lastStepStream = -1;
+   lastStepAgg = -1;
    currentStepCount = 0;
    send("DEBUG: STEPS STARTED");
  }
@@ -126,7 +127,8 @@ function appendRow(ts, steps, accel, hr, conf, batt) {
    if (!stepOn) return;
    stepOn = false;
    Bangle.removeListener("step", onSTEP);
-   lastTotalStepCount = -1;
+   lastStepStream = -1;
+   lastStepAgg = -1;
    currentStepCount = 0;
    send("DEBUG: STEPS STOPPED");
  }
