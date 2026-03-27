@@ -13,7 +13,7 @@ let settings = {
 };
 
 const config = {
-   filename: "mobs.bin",
+   filename: "awapp.bin",
    bytesPerStepCount: 1
 };
 
@@ -470,6 +470,7 @@ function startCollection() {
     accelSamples = 0;
     tempSum = 0;
     tempSamples = 0;
+    tempBuffer = [];
     
 
   }, settings.interval * 1000);
