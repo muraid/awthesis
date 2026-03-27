@@ -259,17 +259,28 @@
   }
 
   function onSTEP(s) {
-    // LOGGING
-    if (isAggregated && stepOn) {
-      if (lastStepAgg < 0) {
-        lastStepAgg = s;
-        return;
-      }
-      const diff = s - lastStepAgg;
-      if (diff >= 0) currentStepCount += diff;
+  // --- LOGGING (aggregated) ---
+  if (isAggregated && stepOn) {
+    if (lastStepAgg < 0) {
       lastStepAgg = s;
+      return;
     }
+    const diff = s - lastStepAgg;
+    if (diff >= 0) currentStepCount += diff;
+    lastStepAgg = s;
   }
+
+  // --- STREAMING (räkna steg även om vi inte skickar direkt) ---
+  if (isStreaming && stepOn) {
+    if (lastStepStream < 0) {
+      lastStepStream = s;
+      return;
+    }
+    const diff = s - lastStepStream;
+    if (diff >= 0) currentStepCount += diff;
+    lastStepStream = s;
+  }
+}
 
   function onACC(a) {
     // LOGGING (aggregated rörelse)
@@ -478,9 +489,7 @@
 
       "Stopp all": () => {
         stopCollection();
-      },
-
-      "Sensors": () => showSensorList()
+      }
     });
   }
 
