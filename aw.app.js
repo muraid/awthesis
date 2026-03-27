@@ -259,15 +259,6 @@
   }
 
   function onSTEP(s) {
-    // STREAMING
-    if (isStreaming && stepOn) {
-      if (lastStepStream < 0) {
-        lastStepStream = s;
-      }
-      const ms = Date.now() - startTime;
-      send(`DATA,STEPS,${ms},${s - lastStepStream}`);
-    }
-
     // LOGGING
     if (isAggregated && stepOn) {
       if (lastStepAgg < 0) {
