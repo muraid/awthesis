@@ -13,7 +13,7 @@ let settings = {
 };
 
 const config = {
-   filename: "awapp.bin",
+   filename: "mobs.bin",
    bytesPerStepCount: 1
 };
 
@@ -450,9 +450,9 @@ function startCollection() {
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
     let accelByte = Math.min(255, Math.round(accelAvg * 100));
+    
+    let tempByte = Math.round(tempAvg);
 
-    let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
-    let tempByte = Math.min(255, Math.round(tempAvg * 100));
     
 
     appendRow(
@@ -470,7 +470,8 @@ function startCollection() {
     accelSamples = 0;
     tempSum = 0;
     tempSamples = 0;
-    tempBuffer = [];
+    tempBuffer = [];  
+
     
 
   }, settings.interval * 1000);
