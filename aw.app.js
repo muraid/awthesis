@@ -552,16 +552,11 @@ function intervalMenu() {
     "Value" : {
       value : settings.interval,
       min : 5, max : 190, step : 1,
-<<<<<<< HEAD
       format : v => v + " s",
       onchange : v => {
         settings.interval = v;
         storage.writeJSON("awapp.settings.json", settings);
       }
-=======
-      format : v => v.toString(),
-      onchange : v => { settings.interval = v; }
->>>>>>> eff0c53f7c431fab617a6c410baac71806d2dc61
     },
     "< Back" : () => { showMainMenu(); }
   };
