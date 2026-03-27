@@ -8,7 +8,7 @@ const storage = require("Storage");
 // ---------------- SETTINGS ----------------
 
 let settings = {
-  sensors: ["steps", "accel", "hr"], // default
+  sensors: ["steps", "accel", "hr", "temp"], // default
   interval: 10,                      // seconds
 };
 
@@ -18,8 +18,8 @@ const config = {
 };
 
 
-// 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery = 9 bytes per row
-const bytesPerRow = 10;
+// 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery + 1 temp = 10 bytes per row
+const bytesPerRow = 11;
 const totalFileLen = 28800;   // SAME file size allocation
 
 let writtenRows = 0;
@@ -48,6 +48,9 @@ let currentStepCount = 0;
 
 let accelSum = 0;
 let accelSamples = 0;
+
+let tempSum = 0;
+let tempSamples = 0;
 
 let hr = 0;
 let hrConfidence = 0;
@@ -83,7 +86,7 @@ function numToBytes(num, len) {
 // ---------------- FILE LOGGING ----------------
 
 // Append one binary row at correct offset
-function appendRow(ts, step, accel, hr, conf, batt) {
+function appendRow(ts, step, accel, hr, conf, batt, temp) {
    // creates an uint8array with the necessary length
    let dataRowUint8Array = new Uint8Array(bytesPerRow);
 
@@ -106,6 +109,7 @@ function appendRow(ts, step, accel, hr, conf, batt) {
    dataRowUint8Array[4 + config.bytesPerStepCount + 1] = hr;
    dataRowUint8Array[4 + config.bytesPerStepCount + 2] = conf;
    dataRowUint8Array[4 + config.bytesPerStepCount + 3] = batt;
+   dataRowUint8Array[4 + config.bytesPerStepCount + 4] = temp;
 
 
    // write the file
@@ -267,6 +271,7 @@ function measureHR() {
   }, 20000);
 }
 
+//steps
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
@@ -289,6 +294,7 @@ function onSTEP(s) {
   }
 }
 
+//accel
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
   if (isAggregated) {
@@ -308,7 +314,6 @@ function onACC(a) {
   }
 }
 
-
 //-------------
 // Streaming
 //-------------
@@ -325,23 +330,26 @@ function onACC(a) {
 
 
  Bangle.on("pressure", b => {
-   if (isStreaming && pressureOn) {
-     if (samplingPeriod > 0) pressureBuffer.push(b);
-     else {
-       const ms = Date.now() - startTime;
-       send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
-     }
-   }
 
+  // --- TEMP: Aggregated logging ---
+  if (isAggregated && tempOn) {
+    tempSum += b.temperature;
+    tempSamples++;
+    tempBuffer.push(b);
+  }
 
-   if (isStreaming && tempOn) {
-     if (samplingPeriod > 0) tempBuffer.push(b);
-     else {
-       const ms = Date.now() - startTime;
-       send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
-     }
-   }
- });
+  // --- TEMP: Streaming ---
+  if (isStreaming && tempOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,TEMP,${ms},${b.temperature.toFixed(2)}`);
+  }
+
+  // --- PRESSURE: Streaming only ---
+  if (isStreaming && pressureOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
+  }
+});
 
 
  Bangle.on("GPS", g => {
@@ -426,6 +434,7 @@ function startCollection() {
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) startSteps();
   if (settings.sensors.includes("accel")) startAccel();
+  if (settings.sensors.includes("temp")) startTemp();
 
   // HR-timer starts separatly
   if (settings.sensors.includes("hr")) {
@@ -441,6 +450,9 @@ function startCollection() {
 
     let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
     let accelByte = Math.min(255, Math.round(accelAvg * 100));
+
+    let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
+    let tempByte = Math.min(255, Math.round(tempAvg * 100));
     
 
     appendRow(
@@ -449,12 +461,16 @@ function startCollection() {
       settings.sensors.includes("accel") ? accelByte : null,
       settings.sensors.includes("hr") ? hr : null,
       settings.sensors.includes("hr") ? hrConfidence : null,
-      batt
+      batt,
+      settings.sensors.includes("temp") ? tempByte : null,
     );
 
     currentStepCount = 0;
     accelSum = 0;
     accelSamples = 0;
+    tempSum = 0;
+    tempSamples = 0;
+    
 
   }, settings.interval * 1000);
 }
@@ -473,6 +489,7 @@ function stopCollection() {
   stopSteps();
   stopAccel();
   stopHRM();
+  stopTemp();
 
   if (file) {
     file.close(); // handle stängs automatiskt
@@ -609,7 +626,7 @@ function showSensorList() {
     "< Back": () => showMainMenu()
   };
 
-  let allSensors = ["steps", "accel", "hr"];
+  let allSensors = ["steps", "accel", "hr", "temp"];
 
   allSensors.forEach(s => {
     menu[s] = {
