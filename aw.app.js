@@ -10,8 +10,19 @@ const storage = require("Storage");
 let settings = {
   sensors: ["steps", "accel", "hr"], // default
   interval: 10,                      // seconds
-  filename: "mobistudy_log.csv"
 };
+
+const config = {
+   filename: "mobs.bin",
+   bytesPerStepCount: 1
+};
+
+
+// 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery = 9 bytes per row
+const bytesPerRow = 10;
+const totalFileLen = 28800;   // SAME file size allocation
+
+let writtenRows = 0;
 
 // ---------------- STREAMING-DEL (från testapp.js) ----------------
 let hrmOn = false;
@@ -56,25 +67,52 @@ let pressureBuffer = [];
 let tempBuffer = [];
 let gpsBuffer = [];
 
-
- function send(line) {
+function send(line) {
    Bluetooth.println(line);
  }
 
+function numToBytes(num, len) {
+ let arr = new Uint8Array(len);
+ for (let i = 0; i < len; i++) {
+   arr[i] = num & 255;
+   num >>= 8;
+ }
+ return arr;
+}
 
 // ---------------- FILE LOGGING ----------------
 
-function appendRow(ts, steps, accel, hr, conf, batt) {
-  if (!file) return;
-  const line = [
-    ts,
-    steps ?? "",
-    accel ?? "",
-    hr ?? "",
-    conf ?? "",
-    batt
-  ].join(",") + "\n";
-  file.write(line);
+// Append one binary row at correct offset
+function appendRow(ts, step, accel, hr, conf, batt) {
+   // creates an uint8array with the necessary length
+   let dataRowUint8Array = new Uint8Array(bytesPerRow);
+
+
+   // ---- timestamp (4 bytes) ----
+   let timestampBytes = numToBytes(ts, 4);
+   for (let i = 0; i < 4; i++) {
+       dataRowUint8Array[i] = timestampBytes[i];
+   }
+
+
+   // ---- step count (configurable bytes) ----
+   let stepBytes = numToBytes(step, config.bytesPerStepCount);
+   for (let i = 0; i < stepBytes.length; i++) {
+       dataRowUint8Array[4 + i] = stepBytes[i];
+   }
+
+
+   dataRowUint8Array[4 + config.bytesPerStepCount] = accel;
+   dataRowUint8Array[4 + config.bytesPerStepCount + 1] = hr;
+   dataRowUint8Array[4 + config.bytesPerStepCount + 2] = conf;
+   dataRowUint8Array[4 + config.bytesPerStepCount + 3] = batt;
+
+
+   // write the file
+   require("Storage").write(config.filename, dataRowUint8Array, writtenRows * bytesPerRow, totalFileLen);
+
+
+   writtenRows++;
 }
 
  // -----------------------------
@@ -381,8 +419,9 @@ function startCollection() {
   Bangle.buzz(300);
 
   // Skapa/öppna fil (w = overwrite, sedan bara append med file.write)
-  file = storage.open(settings.filename, "w");
-  file.write("timestamp,steps,accel,hr,hr_confidence,battery\n");
+  writtenRows = 0;
+  storage.erase(config.filename);
+
 
   // Turn on chosen sensors
   if (settings.sensors.includes("steps")) startSteps();
