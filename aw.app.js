@@ -229,7 +229,6 @@ function measureHR() {
   }, 20000);
 }
 
-
 function onSTEP(s) {
   // STREAMING
   if (isStreaming && stepOn) {
@@ -251,7 +250,6 @@ function onSTEP(s) {
     lastStepAgg = s;
   }
 }
-
 
 function onACC(a) {
   // --- LOGGING MODE (file logging) ---
@@ -550,12 +548,15 @@ function showMainMenu() {
 
 function intervalMenu() {
   const menu = {
-    "" : { title : "Sampling Interval" },
+    "" : { title : "Sampling Interval (sec)" },
     "Value" : {
       value : settings.interval,
       min : 5, max : 190, step : 1,
-      format : v => v.toString(),
-      min : 1, max : 190, step : 1,
+      format : v => v + " s",
+      onchange : v => {
+        settings.interval = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
     },
     "< Back" : () => { showMainMenu(); }
   };
