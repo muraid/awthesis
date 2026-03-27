@@ -31,6 +31,7 @@
   let pressureOn = false;
   let tempOn = false;
   let gpsOn = false;
+  let streamStepTimer = null;
 
   // ---------------- STATE ----------------
   let startTime = 0;
@@ -435,6 +436,15 @@
         isStreaming = true;
         isAggregated = false;
         startTime = Date.now();
+        // --- STEPS: skicka var 10:e sekund även om inga steg tas ---
+          if (streamStepTimer) clearInterval(streamStepTimer);
+          streamStepTimer = setInterval(() => {
+            if (isStreaming && stepOn) {
+              const ms = Date.now() - startTime;
+              send(`DATA,STEPS,${ms},${currentStepCount}`);
+            }
+          }, 10000); // var 10:e sekund
+
         if (hrmOn) startHRM();
         if (accelOn) startAccel();
         if (stepOn) startSteps();
@@ -447,6 +457,10 @@
 
       if (cmd === "STOP") {
         isStreaming = false;
+        if (streamStepTimer) {
+          clearInterval(streamStepTimer);
+          streamStepTimer = null;
+        }
         stopHRM();
         stopAccel();
         stopSteps();
