@@ -358,7 +358,7 @@
       let batt = E.getBattery();
 
       let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
-      let accelByte = Math.min(255, Math.round(accelAvg * 1000));
+      let accelByte = Math.min(255, Math.round(accelAvg * 100));
 
       let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
       let tempByte = Math.round(tempAvg); // °C som heltal
