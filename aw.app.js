@@ -16,12 +16,18 @@
 
   const config = {
     filename: "collectedData.bin",
-    bytesPerStepCount: 1
+    bytesPerStepCount: 1,
+    appendPos: 0
   };
 
   // 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery + 1 temp + 1 padding = 11 bytes per row
   const bytesPerRow = 11;
   const totalFileLen = 28800;
+
+  //RAM BUFFER 
+  const ROW_BUFFER_SIZE = 20; // antal rader i RAM
+  let rowBuffer = new Uint8Array(ROW_BUFFER_SIZE * bytesPerRow);
+  let rowBufferIndex = 0;
 
   let writtenRows = 0;
 
@@ -86,53 +92,74 @@
 
   // ---------------- FILE LOGGING ----------------
 
+  // flush buffer
+  function flushBuffer() {
+  if (rowBufferIndex === 0) return;
+
+  let bytesToWrite = rowBufferIndex * bytesPerRow;
+
+  if (config.appendPos + bytesToWrite > totalFileLen) {
+    send("FILE FULL - STOPPING LOG");
+    stopCollection();
+    return;
+  }
+
+  let data = rowBuffer.slice(0, bytesToWrite);
+
+  storage.write(config.filename, data, config.appendPos);
+  config.appendPos += bytesToWrite;
+
+  rowBufferIndex = 0;
+  }
+
   function appendRow(ts, step, accel, hr, conf, batt, temp) {
-    let dataRowUint8Array = new Uint8Array(bytesPerRow);
 
-    // timestamp (4 bytes)
-    let timestampBytes = numToBytes(ts, 4);
-    for (let i = 0; i < 4; i++) {
-      dataRowUint8Array[i] = timestampBytes[i];
-    }
+  let offset = rowBufferIndex * bytesPerRow;
 
-    // step count (configurable bytes)
-    let stepBytes = numToBytes(step || 0, config.bytesPerStepCount);
-    for (let i = 0; i < stepBytes.length; i++) {
-      dataRowUint8Array[4 + i] = stepBytes[i];
-    }
+  // timestamp (4 bytes)
+  let timestampBytes = numToBytes(ts, 4);
+  for (let i = 0; i < 4; i++) {
+    rowBuffer[offset + i] = timestampBytes[i];
+  }
 
-    // accel, hr, conf, batt, temp
-    dataRowUint8Array[4 + config.bytesPerStepCount]     = accel   || 0;
-    dataRowUint8Array[4 + config.bytesPerStepCount + 1] = hr      || 0;
-    dataRowUint8Array[4 + config.bytesPerStepCount + 2] = conf    || 0;
-    dataRowUint8Array[4 + config.bytesPerStepCount + 3] = batt    || 0;
-    dataRowUint8Array[4 + config.bytesPerStepCount + 4] = temp    || 0;
+  let stepBytes = numToBytes(step || 0, config.bytesPerStepCount);
+  for (let i = 0; i < stepBytes.length; i++) {
+    rowBuffer[offset + 4 + i] = stepBytes[i];
+  }
 
-    // padding (sista byte lämnas 0)
+  rowBuffer[offset + 4 + config.bytesPerStepCount] = accel || 0;
+  rowBuffer[offset + 5 + config.bytesPerStepCount] = hr || 0;
+  rowBuffer[offset + 6 + config.bytesPerStepCount] = conf || 0;
+  rowBuffer[offset + 7 + config.bytesPerStepCount] = batt || 0;
+  rowBuffer[offset + 8 + config.bytesPerStepCount] = temp || 0;
 
-    require("Storage").write(config.filename, dataRowUint8Array, writtenRows * bytesPerRow, totalFileLen);
-    writtenRows++;
+  rowBufferIndex++;
+
+  // ENDA flushen
+  if (rowBufferIndex >= ROW_BUFFER_SIZE) {
+    flushBuffer();
+  }
   }
 
   function appendEventRow(eventCode) {
   let ts = Math.round(Date.now() / 1000);
 
-  // eventCode = 1 för start, 2 för slut
-  // vi lägger det i "step"-fältet (byte 4)
-  let dataRowUint8Array = new Uint8Array(bytesPerRow);
+  let offset = rowBufferIndex * bytesPerRow;
 
-  // timestamp
-  let timestampBytes = numToBytes(ts, 4);
-  for (let i = 0; i < 4; i++) {
-    dataRowUint8Array[i] = timestampBytes[i];
+  // nollställ raden 
+  for (let i = 0; i < bytesPerRow; i++) {
+    rowBuffer[offset + i] = 0;
   }
 
-  // event code i step-fältet
-  dataRowUint8Array[4] = eventCode;
+  let timestampBytes = numToBytes(ts, 4);
+  for (let i = 0; i < 4; i++) {
+    rowBuffer[offset + i] = timestampBytes[i];
+  }
 
-  // skriv raden
-  require("Storage").write(config.filename, dataRowUint8Array, writtenRows * bytesPerRow, totalFileLen);
-  writtenRows++;
+  // eventCode i step-position
+  rowBuffer[offset + 4] = eventCode;
+
+  rowBufferIndex++;
 }
 
   // ---------------- BAROMETER POWER ----------------
@@ -271,7 +298,7 @@
     }
 
     // AGGREGATED: buffra för "bästa 20s"
-    if (isAggregated && d.confidence > 0 && d.bpm > 0) {
+    if (isAggregated && hrmBuffer && d.confidence > 0 && d.bpm > 0) {
       hrmBuffer.push(d);
     }
   }
@@ -409,6 +436,7 @@
 
     writtenRows = 0;
     storage.erase(config.filename);
+    rowBufferIndex = 0;
 
     if (settings.sensors.includes("steps")) startSteps();
     if (settings.sensors.includes("accel")) startAccel();
@@ -453,6 +481,7 @@
 
   function stopCollection() {
     if (!isAggregated) return;
+    flushBuffer();
 
     isAggregated = false;
 
@@ -612,7 +641,7 @@
   function showSensorList() {
     let menu = {
       "": { title: "Active sensors" },
-      "< Back": () => showMainMenu()
+      "< Back": () => showLoggingMenu()
     };
 
     let allSensors = ["steps", "accel", "hr", "temp"];
@@ -692,7 +721,6 @@
   }
 
   showMainMenu();
-  //Terminal.setConsole(true);
 
   // Load settings from storage
   try {
@@ -706,4 +734,6 @@
   } catch (e) {
     send("DEBUG: Could not load settings");
   }
+  
+  //Terminal.setConsole(true);
 })();
