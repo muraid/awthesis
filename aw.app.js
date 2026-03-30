@@ -15,7 +15,7 @@
   };
 
   const config = {
-    filename: "mobs.bin",
+    filename: "collectedData.bin",
     bytesPerStepCount: 1
   };
 
