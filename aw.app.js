@@ -60,6 +60,8 @@
 
   // barometer shared state (temp + pressure)
   let baroOn = false;
+  
+  // EMA variables
   let emaON = false;
   let emaTimer = null;
 
@@ -67,11 +69,12 @@
   let sixMWTInterval;
   let sixMWTSeconds = 360; // 6 minutes
 
-
+//function to send messages
   function send(line) {
     Bluetooth.println(line);
   }
 
+  //little endian num to bytes
   function numToBytes(num, len) {
     let arr = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
@@ -559,7 +562,7 @@
 
     emaTimer = setInterval(() => {
       sendEMA();
-    }, settings.emaInterval * 1000);
+    }, settings.emaInterval * 1000); //turning seconds to ms
   }
   
   function stopEMA() {
@@ -569,7 +572,7 @@
       clearInterval(emaTimer);
       emaTimer = null;
     }
-    Bangle.buzz(200);
+    Bangle.buzz(200); //configurable to change the length of the vibration
   }
 
   // ---------------- MENU ----------------
