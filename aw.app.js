@@ -438,14 +438,14 @@
         isStreaming = true;
         isAggregated = false;
         startTime = Date.now();
-        // --- STEPS: skicka var 10:e sekund även om inga steg tas ---
+        // --- STEPS: send every 10 seconds even if no steps are taken ---
           if (streamStepTimer) clearInterval(streamStepTimer);
           streamStepTimer = setInterval(() => {
             if (isStreaming && stepOn) {
               const ms = Date.now() - startTime;
               send(`DATA,STEPS,${ms},${currentStepCount}`);
             }
-          }, 10000); // var 10:e sekund
+          }, 10000); // every 10 seconds
 
         if (hrmOn) startHRM();
         if (accelOn) startAccel();
@@ -481,13 +481,13 @@
     E.showMenu({
       "": { title: "AW app" },
 
-      "Starta streaming": () => {
-        E.showMessage("Streaming\nStyrs från webbapp");
+      "Start streaming": () => {
+        E.showMessage("Streaming\nControlled on the webb");
       },
 
-      "Logg on the watch": () => showLoggingMenu(),
+      "Local logging": () => showLoggingMenu(),
 
-      "Stopp all": () => {
+      "Stop collection": () => {
         stopCollection();
       }
     });
