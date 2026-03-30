@@ -660,20 +660,20 @@
           settings.emaEnabled = v;
           storage.writeJSON("awapp.settings.json", settings);
 
-          if (!v) stopEMA(); // stäng av om användaren inaktiverar EMA
+          if (!v) stopEMA(); // turn off if disabled
         }
       },
 
       "Interval (sec)": {
         value: settings.emaInterval,
         min: 60,
-        max: 86400,
+        max: 86400, //max 24h
         step: 60,
         format: v => v + " s",
         onchange: v => {
           settings.emaInterval = v;
 
-          // Om EMA körs under logging → starta om timern
+          // Restart timer
           if (emaON && isAggregated) {
             stopEMA();
             startEMA();
