@@ -326,25 +326,16 @@
  function startSixMWT() {
   sixMWTSeconds = 360;
 
-  // --- Start sensors for aggregated data ---
-  if (settings.sensors.includes("steps")) startSteps();
-  if (settings.sensors.includes("accel")) startAccel();
-  if (settings.sensors.includes("temp")) startTemp();
-  if (settings.sensors.includes("hr")) {
-    startHRM();
-    hrmBuffer = [];
-    hrTimer = setInterval(measureHR, 20000);
-  }
+  // Start aggregated logging
+  startCollection();
 
-  // --- Event + debug ---
+  // Event start
   let ts = Math.round(Date.now() / 1000);
   send(`EVENT,6MWT_START,${ts}`);
   appendEventRow(1);
 
-  // Buzz at start
   Bangle.buzz();
 
-  // --- Countdown ---
   sixMWTInterval = setInterval(() => {
     sixMWTSeconds--;
 
@@ -352,25 +343,15 @@
       clearInterval(sixMWTInterval);
       sixMWTInterval = undefined;
 
+      // Event end
       let ts2 = Math.round(Date.now() / 1000);
       send(`EVENT,6MWT_END,${ts2}`);
       appendEventRow(2);
 
-      // Buzz twice at end
-      Bangle.buzz();
       Bangle.buzz();
 
-      // --- Stop sensors after test ---
-      stopSteps();
-      stopAccel();
-      stopTemp();
-      stopPressure();
-      stopMag();
-      stopGps();
-
-      if (hrTimer) clearInterval(hrTimer);
-      hrTimer = null;
-      stopHRM();
+      // Stop logging
+      stopCollection();
     }
   }, 1000);
   }
