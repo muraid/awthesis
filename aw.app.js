@@ -22,14 +22,9 @@
 
   // 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery + 1 temp + 1 padding = 11 bytes per row
   const bytesPerRow = 11;
-  const totalFileLen = 28800;
+  const totalFileLen = 28600;
 
-  //RAM BUFFER 
-  const ROW_BUFFER_SIZE = 20; // antal rader i RAM
-  let rowBuffer = new Uint8Array(ROW_BUFFER_SIZE * bytesPerRow);
-  let rowBufferIndex = 0;
-
-  let writtenRows = 0;
+  let rows = [];
 
   // ---------------- STREAMING STATE ----------------
   let hrmOn = false;
@@ -88,76 +83,37 @@
   }
 
   // ---------------- FILE LOGGING ----------------
-
-  // flush buffer
-  function flushBuffer() {
-  if (rowBufferIndex === 0) return;
-
-  let bytesToWrite = rowBufferIndex * bytesPerRow;
-
-  if (config.appendPos + bytesToWrite > totalFileLen) {
-    send("FILE FULL - STOPPING LOG");
-    stopCollection();
-    return;
-  }
-
-  let data = rowBuffer.slice(0, bytesToWrite);
-
-  storage.write(config.filename, data, config.appendPos);
-  config.appendPos += bytesToWrite;
-
-  rowBufferIndex = 0;
-  }
-
   function appendRow(ts, step, accel, hr, conf, batt, temp) {
-
-  let offset = rowBufferIndex * bytesPerRow;
+  let row = new Uint8Array(bytesPerRow);
 
   // timestamp (4 bytes)
   let timestampBytes = numToBytes(ts, 4);
-  for (let i = 0; i < 4; i++) {
-    rowBuffer[offset + i] = timestampBytes[i];
-  }
+  row.set(timestampBytes, 0);
 
-  let stepBytes = numToBytes(step || 0, config.bytesPerStepCount);
-  for (let i = 0; i < stepBytes.length; i++) {
-    rowBuffer[offset + 4 + i] = stepBytes[i];
-  }
+  row[4] = step || 0;
+  row[5] = accel || 0;
+  row[6] = hr || 0;
+  row[7] = conf || 0;
+  row[8] = batt || 0;
+  row[9] = temp || 0;
+  row[10] = 0; // padding
 
-  rowBuffer[offset + 4 + config.bytesPerStepCount] = accel || 0;
-  rowBuffer[offset + 5 + config.bytesPerStepCount] = hr || 0;
-  rowBuffer[offset + 6 + config.bytesPerStepCount] = conf || 0;
-  rowBuffer[offset + 7 + config.bytesPerStepCount] = batt || 0;
-  rowBuffer[offset + 8 + config.bytesPerStepCount] = temp || 0;
+  rows.push(row);
+}
 
-  rowBufferIndex++;
 
-  // ENDA flushen
-  if (rowBufferIndex >= ROW_BUFFER_SIZE) {
-    flushBuffer();
-  }
-  }
-
-  function appendEventRow(eventCode) {
+  function appendEventRow(code) {
+  let row = new Uint8Array(bytesPerRow);
   let ts = Math.round(Date.now() / 1000);
 
-  let offset = rowBufferIndex * bytesPerRow;
-
-  // nollställ raden 
-  for (let i = 0; i < bytesPerRow; i++) {
-    rowBuffer[offset + i] = 0;
-  }
-
   let timestampBytes = numToBytes(ts, 4);
-  for (let i = 0; i < 4; i++) {
-    rowBuffer[offset + i] = timestampBytes[i];
-  }
+  row.set(timestampBytes, 0);
 
-  // eventCode i step-position
-  rowBuffer[offset + 4] = eventCode;
+  row[4] = code;
 
-  rowBufferIndex++;
+  rows.push(row);
 }
+
 
   // ---------------- BAROMETER POWER ----------------
 
@@ -431,9 +387,10 @@
     isAggregated = true;
     Bangle.buzz(300);
 
-    writtenRows = 0;
+    rows = [];
+    
     storage.erase(config.filename);
-    rowBufferIndex = 0;
+  
 
     if (settings.sensors.includes("steps")) startSteps();
     if (settings.sensors.includes("accel")) startAccel();
@@ -478,9 +435,18 @@
 
   function stopCollection() {
     if (!isAggregated) return;
-    flushBuffer();
+  isAggregated = false;
 
-    isAggregated = false;
+  // slå ihop alla rader till en enda Uint8Array
+  let big = new Uint8Array(rows.length * bytesPerRow);
+  let pos = 0;
+  for (let r of rows) {
+    big.set(r, pos);
+    pos += bytesPerRow;
+  }
+
+  storage.write(config.filename, big);
+  rows = []; // töm RAM
 
     if (logTimer) clearInterval(logTimer);
     if (hrTimer) clearInterval(hrTimer);
@@ -638,7 +604,7 @@
   function showSensorList() {
     let menu = {
       "": { title: "Active sensors" },
-      "< Back": () => showLoggingMenu()
+      "< Back": () => showMainMenu()
     };
 
     let allSensors = ["steps", "accel", "hr", "temp"];
@@ -731,6 +697,6 @@
   } catch (e) {
     send("DEBUG: Could not load settings");
   }
-  
+
   //Terminal.setConsole(true);
 })();
