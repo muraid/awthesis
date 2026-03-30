@@ -10,6 +10,8 @@
   let settings = {
     sensors: ["steps", "accel", "hr", "temp"], // default
     interval: 10, // seconds
+    emaEnabled: false,
+    emaInterval: 3600, // seconds (1 hour default)
   };
 
   const config = {
@@ -58,6 +60,8 @@
 
   // barometer shared state (temp + pressure)
   let baroOn = false;
+  let emaON = false;
+  let emaTimer = null;
 
   function send(line) {
     Bluetooth.println(line);
@@ -353,6 +357,8 @@
       hrTimer = setInterval(measureHR, 20000);
     }
 
+    if (settings.emaEnabled) startEMA();
+
     logTimer = setInterval(() => {
       let ts = Math.round(Date.now() / 1000);
       let batt = E.getBattery();
@@ -400,6 +406,8 @@
     stopPressure();
     stopMag();
     stopGps();
+
+    stopEMA();
 
     Bangle.buzz(200);
   }
@@ -475,6 +483,35 @@
     });
   });
 
+  function sendEMA() {
+    if (!emaON) return;
+    E.showAlert("Get up!").then(() => {
+      showEMAMenu();
+    });
+  }
+
+  function startEMA() {
+    if (!isAggregated) return;
+    if (emaON) return;
+
+    emaON = true;
+    Bangle.buzz(300);
+
+    emaTimer = setInterval(() => {
+      sendEMA();
+    }, settings.emaInterval * 1000);
+  }
+  
+  function stopEMA() {
+    if (!emaON) return;
+    emaON = false;
+    if (emaTimer) {
+      clearInterval(emaTimer);
+      emaTimer = null;
+    }
+    Bangle.buzz(200);
+  }
+
   // ---------------- MENU ----------------
 
   function showMainMenu() {
@@ -486,10 +523,7 @@
       },
 
       "Local logging": () => showLoggingMenu(),
-
-      "Stop collection": () => {
-        stopCollection();
-      }
+      "EMA settings": () => showEMAMenu()
     });
   }
 
@@ -544,7 +578,57 @@
       "< Back": () => showMainMenu()
     });
   }
+  function showEMAMenu() {
+    E.showMenu({
+      "": { title: "EMA Settings" },
+
+      "Enabled": {
+        value: settings.emaEnabled,
+        onchange: v => {
+          settings.emaEnabled = v;
+          storage.writeJSON("awapp.settings.json", settings);
+
+          if (!v) stopEMA(); // stäng av om användaren inaktiverar EMA
+        }
+      },
+
+      "Interval (sec)": {
+        value: settings.emaInterval,
+        min: 60,
+        max: 86400,
+        step: 60,
+        format: v => v + " s",
+        onchange: v => {
+          settings.emaInterval = v;
+
+          // Om EMA körs under logging → starta om timern
+          if (emaON && isAggregated) {
+            stopEMA();
+            startEMA();
+          }
+
+          storage.writeJSON("awapp.settings.json", settings);
+        }
+      },
+
+      "Test Alert": () => sendEMA(),
+      "< Back": () => showMainMenu()
+    });
+  }
 
   showMainMenu();
   //Terminal.setConsole(true);
+
+  // Load settings from storage
+  try {
+    let savedSettings = storage.readJSON("awapp.settings.json");
+    if (savedSettings) {
+      settings = Object.assign(settings, savedSettings);
+      if (settings.emaEnabled) {
+        startEMA();
+      }
+    }
+  } catch (e) {
+    send("DEBUG: Could not load settings");
+  }
 })();
