@@ -59,6 +59,11 @@
   // barometer shared state (temp + pressure)
   let baroOn = false;
 
+  // 6MWT Countdown 
+  let sixMWTInterval;
+  let sixMWTSeconds = 360; // 6 minutes
+
+
   function send(line) {
     Bluetooth.println(line);
   }
@@ -101,6 +106,27 @@
     require("Storage").write(config.filename, dataRowUint8Array, writtenRows * bytesPerRow, totalFileLen);
     writtenRows++;
   }
+
+  function appendEventRow(eventCode) {
+  let ts = Math.round(Date.now() / 1000);
+
+  // eventCode = 1 för start, 2 för slut
+  // vi lägger det i "step"-fältet (byte 4)
+  let dataRowUint8Array = new Uint8Array(bytesPerRow);
+
+  // timestamp
+  let timestampBytes = numToBytes(ts, 4);
+  for (let i = 0; i < 4; i++) {
+    dataRowUint8Array[i] = timestampBytes[i];
+  }
+
+  // event code i step-fältet
+  dataRowUint8Array[4] = eventCode;
+
+  // skriv raden
+  require("Storage").write(config.filename, dataRowUint8Array, writtenRows * bytesPerRow, totalFileLen);
+  writtenRows++;
+}
 
   // ---------------- BAROMETER POWER ----------------
 
@@ -280,7 +306,7 @@
     if (diff >= 0) currentStepCount += diff;
     lastStepStream = s;
   }
-}
+  }
 
   function onACC(a) {
     // LOGGING (aggregated rörelse)
@@ -295,6 +321,36 @@
       send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
     }
   }
+
+  //function for 6 minutes walking test
+ function startSixMWT() {
+  sixMWTSeconds = 360;
+
+  // Debug + event
+  let ts = Math.round(Date.now() / 1000);
+  send(`EVENT,6MWT_START,${ts}`);
+  appendEventRow(1); // event start
+
+  Bangle.buzz();
+
+  sixMWTInterval = setInterval(() => {
+    sixMWTSeconds--;
+
+    if (sixMWTSeconds <= 0) {
+      clearInterval(sixMWTInterval);
+      sixMWTInterval = undefined;
+
+      let ts2 = Math.round(Date.now() / 1000);
+      send(`EVENT,6MWT_END,${ts2}`);
+      appendEventRow(2); // event end
+
+      Bangle.buzz();
+      Bangle.buzz();
+    }
+  }, 1000);
+  }
+
+
 
   // ------------- Streaming extra sensorer -------------
 
@@ -487,6 +543,8 @@
 
       "Local logging": () => showLoggingMenu(),
 
+      "Timed test": () => timedTest(),
+
       "Stop collection": () => {
         stopCollection();
       }
@@ -544,6 +602,16 @@
       "< Back": () => showMainMenu()
     });
   }
+
+  function timedTest(){
+    E.showMenu({
+      "Choose sensors": () => showSensorList(),
+      "Set Interval": () => intervalMenu(),
+      "Start 6MWT" : () => startSixMWT(),
+      "< Back": () => showMainMenu()
+    });
+
+    }
 
   showMainMenu();
   //Terminal.setConsole(true);
