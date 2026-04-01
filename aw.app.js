@@ -296,6 +296,11 @@
     if (diff >= 0) currentStepCount += diff;
     lastStepStream = s;
   }
+  if (isStreaming && stepOn) {
+    const ms = Date.now() - startTime;
+    send(`DATA,STEPS,${ms},${currentStepCount}`);
+  }
+
   }
 
   function onACC(a) {
@@ -504,14 +509,6 @@
         isStreaming = true;
         isAggregated = false;
         startTime = Date.now();
-        // --- STEPS: send every 10 seconds even if no steps are taken ---
-          if (streamStepTimer) clearInterval(streamStepTimer);
-          streamStepTimer = setInterval(() => {
-            if (isStreaming && stepOn) {
-              const ms = Date.now() - startTime;
-              send(`DATA,STEPS,${ms},${currentStepCount}`);
-            }
-          }, 10000); // every 10 seconds
 
         if (hrmOn) startHRM();
         if (accelOn) startAccel();
