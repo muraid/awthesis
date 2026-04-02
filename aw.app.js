@@ -86,7 +86,31 @@
   }
 
   // ---------------- FILE LOGGING ----------------
-  function appendRow(ts, step, accel, hr, conf, batt, temp) {
+function flushRows() {
+  if (rows.length === 0) return;
+
+  let block = new Uint8Array(rows.length * bytesPerRow);
+  let pos = 0;
+
+  for (let r of rows) {
+    block.set(r, pos);
+    pos += bytesPerRow;
+  }
+
+  // kontrollera att vi inte går över maxlängd
+  if (config.appendPos + block.length > totalFileLen) {
+    console.log("FILE FULL");
+    return;
+  }
+
+  // skriv blocket med totalFileLen så Espruino reserverar hela filen
+  storage.write(config.filename, block, config.appendPos, totalFileLen);
+
+  config.appendPos += block.length;
+  rows = [];
+}
+
+function appendRow(ts, step, accel, hr, conf, batt, temp) {
   let row = new Uint8Array(bytesPerRow);
 
   // timestamp (4 bytes)
@@ -102,6 +126,7 @@
   row[10] = 0; // padding
 
   rows.push(row);
+  if (rows.length >= 50) flushRows();
 }
 
 
@@ -395,10 +420,10 @@
     isAggregated = true;
     Bangle.buzz(300);
 
-    rows = [];
-    
     storage.erase(config.filename);
-  
+    storage.write(config.filename, new Uint8Array(totalFileLen), 0, totalFileLen);
+    config.appendPos = 0;
+    rows = [];
 
     if (settings.sensors.includes("steps")) startSteps();
     if (settings.sensors.includes("accel")) startAccel();
@@ -443,18 +468,9 @@
 
   function stopCollection() {
     if (!isAggregated) return;
-  isAggregated = false;
-
-  // slå ihop alla rader till en enda Uint8Array
-  let big = new Uint8Array(rows.length * bytesPerRow);
-  let pos = 0;
-  for (let r of rows) {
-    big.set(r, pos);
-    pos += bytesPerRow;
-  }
-
-  storage.write(config.filename, big);
-  rows = []; // töm RAM
+    isAggregated = false;
+    
+    if (rows.length > 0) flushRows();
 
     if (logTimer) clearInterval(logTimer);
     if (hrTimer) clearInterval(hrTimer);
