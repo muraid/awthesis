@@ -63,16 +63,16 @@ function barometerTurnoff(soft)
   }
 }
 
-let powerTurnoffBattery = [false,false,false,false,false,false];
-let powerTurnoffStorage = [false,false,false,false,false,false];
-let powersavingGPS = false;
-let gpsTurnOnIntervallFunction;
+//let powerTurnoffBattery = [false,false,false,false,false,false];
+//let powerTurnoffStorage = [false,false,false,false,false,false];
+//let powersavingGPS = false;
+//let gpsTurnOnIntervallFunction;
 
 let powerTurnoffFunctions = [hrmTurnoff,barometerTurnoff,accelTurnoff,magnetudeTurnoff,compassTurnoff,gpsTurnoff];
 
-let batterySaveAction = false;
+//let batterySaveAction = false;
 let storageSaveAction = false;
-let batterySavePercent = 0;
+//let batterySavePercent = 0;
 let storageSave = 0;
 
 let appID = "awthesis";
@@ -453,7 +453,7 @@ let awapp= E.compiledC(`
 
   It returns if the array is full.
   ***/
-  bool writeOptions2(bool filenameSupervisor,bool filenameSubject, bool filenameDate){
+  bool writeOptions2(bool filenameSubject, bool filenameDate){
     writeBit(filenameSupervisor);
     writeBit(filenameSubject);
     writeBit(filenameDate);
@@ -766,32 +766,6 @@ function writeToFlash(){
     saveData(writeBufferDataView.buffer);
   }
   
-  if(file.offset >=  storageNotifiy && storageNotifiyAction)
-  {
-  if(showingWarning == false)
-  {
-    clearTimeout(drawTimeout);
-    warnings();
-    Bangle.buzz();
-    storageNotifiyAction = false;
-  }
-  }
-  
-  if(file.offset >=  storageSave && storageSaveAction)
-  {
-    if(showingWarning == false)
-    {
-      clearTimeout(drawTimeout);
-      warnings();
-      Bangle.buzz();
-      storageSaveAction = false;
-      for (let i = 0; i < powerTurnoffStorage.length; i++) {
-        if(powerTurnoffStorage[i])
-          powerTurnoffFunctions[i](true);
-      }
-    }
-  }
-
   awapp.clear();
   if(file.offset >= FILESIZE){
     clearTimeout(drawTimeout);
