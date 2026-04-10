@@ -1231,6 +1231,134 @@ let startedVisual = false;
 
 // First menu
 
+ function showMainMenu() {
+    E.showMenu({
+      "": { title: "AW app" },
+
+      "Start streaming": () => {
+        E.showMessage("Streaming\nControlled on the webb");
+      },
+
+      "Local logging": () => showLoggingMenu(),
+
+      "Timed test": () => timedTest(),
+      "EMA settings": () => showEMAMenu()
+    });
+  }
+
+  function intervalMenu() {
+    const menu = {
+      "" : { title : "Sampling Interval (sec)" },
+      "Value" : {
+        value : settings.interval,
+        min : 5, max : 190, step : 1,
+        format : v => v + " s",
+        onchange : v => {
+          settings.interval = v;
+          storage.writeJSON("awapp.settings.json", settings);
+        }
+      },
+      "< Back" : () => { showMainMenu(); }
+    };
+    E.showMenu(menu);
+  }
+
+  function showSensorList() {
+    let menu = {
+      "": { title: "Active sensors" },
+      "< Back": () => showMainMenu()
+    };
+
+    let allSensors = ["steps", "accel", "hr", "temp"];
+
+    allSensors.forEach(s => {
+      menu[s] = {
+        value: settings.sensors.includes(s),
+        onchange: v => {
+          if (v) {
+            if (!settings.sensors.includes(s)) settings.sensors.push(s);
+          } else {
+            settings.sensors = settings.sensors.filter(x => x !== s);
+          }
+        }
+      };
+    });
+
+    E.showMenu(menu);
+  }
+
+  function showLoggingMenu() {
+    E.showMenu({
+      "": { title: "Logging" },
+      "Choose sensors": () => showSensorList(),
+      "Set Interval": () => intervalMenu(),
+      "Start": () => startCollection(),
+      "Stop": () => stopCollection(),
+      "< Back": () => showMainMenu()
+    });
+  }
+
+  function timedTest(){
+    E.showMenu({
+      "Choose sensors": () => showSensorList(),
+      "Set Interval": () => intervalMenu(),
+      "Start 6MWT" : () => startSixMWT(),
+      "< Back": () => showMainMenu()
+    });
+
+    }
+  function showEMAMenu() {
+    E.showMenu({
+      "": { title: "EMA Settings" },
+
+      "Enabled": {
+        value: settings.emaEnabled,
+        onchange: v => {
+          settings.emaEnabled = v;
+          storage.writeJSON("awapp.settings.json", settings);
+
+          if (!v) stopEMA(); // turn off if disabled
+        }
+      },
+
+      "Interval (sec)": {
+        value: settings.emaInterval,
+        min: 60,
+        max: 86400, //max 24h
+        step: 60,
+        format: v => v + " s",
+        onchange: v => {
+          settings.emaInterval = v;
+
+          // Restart timer
+          if (emaON && isAggregated) {
+            stopEMA();
+            startEMA();
+          }
+
+          storage.writeJSON("awapp.settings.json", settings);
+        }
+      },
+
+      "Test Alert": () => sendEMA(),
+      "< Back": () => showMainMenu()
+    });
+  }
+
+  showMainMenu();
+
+  // Load settings from storage
+  try {
+    let savedSettings = storage.readJSON("awapp.settings.json");
+    if (savedSettings) {
+      settings = Object.assign(settings, savedSettings);
+      if (settings.emaEnabled) {
+        startEMA();
+      }
+    }
+  } catch (e) {
+    send("DEBUG: Could not load settings");
+  }
 
 Bangle.loadWidgets();
 Bangle.drawWidgets();
