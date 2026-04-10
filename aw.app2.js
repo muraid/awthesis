@@ -1,127 +1,11 @@
-//Anton Clock
-//https://github.com/espruino/BangleApps/tree/master/apps/antonclk
-// Clock with large digits using the "Anton" bold font
-Graphics.prototype.setFontAnton = function(scale) {
-// Actual height 69 (68 - 0)
-g.setFontCustom(atob("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgAAAAAAAAAAA/gAAAAAAAAAAP/gAAAAAAAAAH//gAAAAAAAAB///gAAAAAAAAf///gAAAAAAAP////gAAAAAAD/////gAAAAAA//////gAAAAAP//////gAAAAH///////gAAAB////////gAAAf////////gAAP/////////gAD//////////AA//////////gAA/////////4AAA////////+AAAA////////gAAAA///////wAAAAA//////8AAAAAA//////AAAAAAA/////gAAAAAAA////4AAAAAAAA///+AAAAAAAAA///gAAAAAAAAA//wAAAAAAAAAA/8AAAAAAAAAAA/AAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////AAAAAB///////8AAAAH////////AAAAf////////wAAA/////////4AAB/////////8AAD/////////+AAH//////////AAP//////////gAP//////////gAP//////////gAf//////////wAf//////////wAf//////////wAf//////////wA//8AAAAAB//4A//wAAAAAAf/4A//gAAAAAAP/4A//gAAAAAAP/4A//gAAAAAAP/4A//wAAAAAAf/4A///////////4Af//////////wAf//////////wAf//////////wAf//////////wAP//////////gAP//////////gAH//////////AAH//////////AAD/////////+AAB/////////8AAA/////////4AAAP////////gAAAD///////+AAAAAf//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/gAAAAAAAAAAP/gAAAAAAAAAAf/gAAAAAAAAAAf/gAAAAAAAAAAf/AAAAAAAAAAA//AAAAAAAAAAA/+AAAAAAAAAAB/8AAAAAAAAAAD//////////gAH//////////gAP//////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/4AAAAB/gAAD//4AAAAf/gAAP//4AAAB//gAA///4AAAH//gAB///4AAAf//gAD///4AAA///gAH///4AAD///gAP///4AAH///gAP///4AAP///gAf///4AAf///gAf///4AB////gAf///4AD////gA////4AH////gA////4Af////gA////4A/////gA//wAAB/////gA//gAAH/////gA//gAAP/////gA//gAA///8//gA//gAD///w//gA//wA////g//gA////////A//gA///////8A//gA///////4A//gAf//////wA//gAf//////gA//gAf/////+AA//gAP/////8AA//gAP/////4AA//gAH/////gAA//gAD/////AAA//gAB////8AAA//gAA////wAAA//gAAP///AAAA//gAAD//8AAAA//gAAAP+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/+AAAAAD/wAAB//8AAAAP/wAAB///AAAA//wAAB///wAAB//wAAB///4AAD//wAAB///8AAH//wAAB///+AAP//wAAB///+AAP//wAAB////AAf//wAAB////AAf//wAAB////gAf//wAAB////gA///wAAB////gA///wAAB////gA///w//AAf//wA//4A//AAA//wA//gA//AAAf/wA//gB//gAAf/wA//gB//gAAf/wA//gD//wAA//wA//wH//8AB//wA///////////gA///////////gA///////////gA///////////gAf//////////AAf//////////AAP//////////AAP/////////+AAH/////////8AAH///+/////4AAD///+f////wAAA///8P////gAAAf//4H///+AAAAH//gB///wAAAAAP4AAH/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/wAAAAAAAAAA//wAAAAAAAAAP//wAAAAAAAAB///wAAAAAAAAf///wAAAAAAAH////wAAAAAAA/////wAAAAAAP/////wAAAAAB//////wAAAAAf//////wAAAAH///////wAAAA////////wAAAP////////wAAA///////H/wAAA//////wH/wAAA/////8AH/wAAA/////AAH/wAAA////gAAH/wAAA///4AAAH/wAAA//+AAAAH/wAAA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gA///////////gAAAAAAAAH/4AAAAAAAAAAH/wAAAAAAAAAAH/wAAAAAAAAAAH/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//8AAA/////+B///AAA/////+B///wAA/////+B///4AA/////+B///8AA/////+B///8AA/////+B///+AA/////+B////AA/////+B////AA/////+B////AA/////+B////gA/////+B////gA/////+B////gA/////+A////gA//gP/gAAB//wA//gf/AAAA//wA//gf/AAAAf/wA//g//AAAAf/wA//g//AAAA//wA//g//gAAA//wA//g//+AAP//wA//g////////gA//g////////gA//g////////gA//g////////gA//g////////AA//gf///////AA//gf//////+AA//gP//////+AA//gH//////8AA//gD//////4AA//gB//////wAA//gA//////AAAAAAAH////8AAAAAAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////gAAAAB///////+AAAAH////////gAAAf////////4AAB/////////8AAD/////////+AAH//////////AAH//////////gAP//////////gAP//////////gAf//////////wAf//////////wAf//////////wAf//////////wAf//////////4A//wAD/4AAf/4A//gAH/wAAP/4A//gAH/wAAP/4A//gAP/wAAP/4A//gAP/4AAf/4A//wAP/+AD//4A///wP//////4Af//4P//////wAf//4P//////wAf//4P//////wAf//4P//////wAP//4P//////gAP//4H//////gAH//4H//////AAH//4D/////+AAD//4D/////8AAB//4B/////4AAA//4A/////wAAAP/4AP////AAAAB/4AD///4AAAAAAAAAH/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//AAAAAAAAAAA//gAAAAAAAAAA//gAAAAAAAAAA//gAAAAAAADgA//gAAAAAAP/gA//gAAAAAH//gA//gAAAAB///gA//gAAAAP///gA//gAAAD////gA//gAAAf////gA//gAAB/////gA//gAAP/////gA//gAB//////gA//gAH//////gA//gA///////gA//gD///////gA//gf///////gA//h////////gA//n////////gA//////////gAA/////////AAAA////////wAAAA///////4AAAAA///////AAAAAA//////4AAAAAA//////AAAAAAA/////4AAAAAAA/////AAAAAAAA////8AAAAAAAA////gAAAAAAAA///+AAAAAAAAA///4AAAAAAAAA///AAAAAAAAAA//4AAAAAAAAAA/+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//gB///wAAAAP//4H///+AAAA///8P////gAAB///+f////4AAD///+/////8AAH/////////+AAH//////////AAP//////////gAP//////////gAf//////////gAf//////////wAf//////////wAf//////////wA///////////wA//4D//wAB//4A//wB//gAA//4A//gA//gAAf/4A//gA//AAAf/4A//gA//gAAf/4A//wB//gAA//4A///P//8AH//4Af//////////wAf//////////wAf//////////wAf//////////wAf//////////gAP//////////gAP//////////AAH//////////AAD/////////+AAD///+/////8AAB///8f////wAAAf//4P////AAAAH//wD///8AAAAA/+AAf//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//gAAAAAAAAB///+AA/+AAAAP////gA//wAAAf////wA//4AAB/////4A//8AAD/////8A//+AAD/////+A///AAH/////+A///AAP//////A///gAP//////A///gAf//////A///wAf//////A///wAf//////A///wAf//////A///wA///////AB//4A//4AD//AAP/4A//gAB//AAP/4A//gAA//AAP/4A//gAA/+AAP/4A//gAB/8AAP/4A//wAB/8AAf/4Af//////////wAf//////////wAf//////////wAf//////////wAf//////////wAP//////////gAP//////////gAH//////////AAH/////////+AAD/////////8AAB/////////4AAAf////////wAAAP////////AAAAB///////4AAAAAD/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/AAB/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAA//AAD/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="), 46, atob("EiAnGicnJycnJycnEw=="), 78 + (scale << 8) + (1 << 16));
-};
-
-// must be inside our own scope here so that when we are unloaded everything disappears
-// we also define functions using 'let fn = function() {..}' for the same reason. function decls are global
-let drawTimeout;
-
-// Actually draw the watch face
-let draw = function() {
-  console.log("draw called");
-  var x = g.getWidth() / 2;
-  var y = g.getHeight() / 2;
-  g.reset().clearRect(Bangle.appRect); // clear whole background (w/o widgets)
-  var date = new Date();
-  var timeStr = require("locale").time(date, 1); // Hour and minute
-  g.setFontAlign(0, 0).setFont("Anton").drawString(timeStr, x, y);
-  // Show date and day of week
-  var dateStr = require("locale").date(date, 0).toUpperCase()+"\n"+
-                require("locale").dow(date, 0).toUpperCase();
-  g.setFontAlign(0, 0).setFont("6x8", 2).drawString(dateStr, x, y+48);
-
-  // queue next draw
-  if (drawTimeout) clearTimeout(drawTimeout);
-  drawTimeout = setTimeout(function() {
-    if(drawTimeout != null){
-      drawTimeout = undefined;
-      draw();
-    }
-  }, 60000 - (Date.now() % 60000));
-};
-
 // Load widgets
 Bangle.loadWidgets();
 setTimeout(Bangle.drawWidgets,0);
 
-function hrmTurnoff(soft){
-  if(soft)
-  {
-    Bangle.setHRMPower(false, appID);
-    hrmActive = false;
-  }
-  else
-  {    
-    Bangle.setHRMPower(false);
-  }
-}
-
-function accelTurnoff(soft)
-{
-  powerAccelerometer = false;
-}
-
-function magnetudeTurnoff(soft)
-{
-  powerMagnetude = false;
-}
-
-function compassTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setCompassPower(false, appID);
-    compassActive = false;
-  }
-  else
-  {    
-    Bangle.setCompassPower(false);
-  }
-}
-
-function gpsTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setGPSPower(false, appID);
-    gpsActive = false;
-  }
-  else
-  {    
-    Bangle.setGPSPower(false);
-  }
-}
-
-function barometerTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setBarometerPower(false, appID);
-    barometerActive = false;
-  }
-  else
-  {    
-    Bangle.setBarometerPower(false);
-  }
-}
-
-let powerTurnoffBattery = [false,false,false,false,false,false];
-let powerTurnoffStorage = [false,false,false,false,false,false];
-let powersavingGPS = false;
-let gpsTurnOnIntervallFunction;
-
 let powerTurnoffFunctions = [hrmTurnoff,barometerTurnoff,accelTurnoff,magnetudeTurnoff,compassTurnoff,gpsTurnoff];
+let appID = "awthesis";
 
-let batteryNotifiyAction = false;
-let storageNotifiyAction = false;
-let batteryNotifiyPercent = 0;
-let storageNotifiy = 0;
-
-let batterySaveAction = false;
-let storageSaveAction = false;
-let batterySavePercent = 0;
-let storageSave = 0;
-
-let showingWarning = false;
-let noMoreStorage = false;
-
-let appID = "historio";
-
-let historiographer= E.compiledC(`
+let awapp= E.compiledC(`
   // void initArray(int, int)
   // void clear()
   // void writeIDs()
@@ -133,7 +17,7 @@ let historiographer= E.compiledC(`
   // void setGPS(bool)
   // bool writeIDsToArray()
   // bool writeOptions1(bool, bool, bool)
-  // bool writeOptions2(bool, bool, bool)
+  // bool writeOptions2(bool)
   // bool writeDate(int, int, int)
   // bool writeTime(int, int)
   // bool writeBarometer(int, int, int, int)
@@ -497,7 +381,7 @@ let historiographer= E.compiledC(`
 
   It returns if the array is full.
   ***/
-  bool writeOptions2(bool filenameSupervisor,bool filenameSubject, bool filenameDate){
+  bool writeOptions2(bool filenameDate){
     writeBit(filenameSupervisor);
     writeBit(filenameSubject);
     writeBit(filenameDate);
@@ -810,35 +694,8 @@ function writeToFlash(){
     saveData(writeBufferDataView.buffer);
   }
   
-  if(file.offset >=  storageNotifiy && storageNotifiyAction)
-  {
-  if(showingWarning == false)
-  {
-    clearTimeout(drawTimeout);
-    warnings();
-    Bangle.buzz();
-    storageNotifiyAction = false;
-  }
-  }
-  
-  if(file.offset >=  storageSave && storageSaveAction)
-  {
-    if(showingWarning == false)
-    {
-      clearTimeout(drawTimeout);
-      warnings();
-      Bangle.buzz();
-      storageSaveAction = false;
-      for (let i = 0; i < powerTurnoffStorage.length; i++) {
-        if(powerTurnoffStorage[i])
-          powerTurnoffFunctions[i](true);
-      }
-    }
-  }
-
-  historiographer.clear();
+  awapp.clear();
   if(file.offset >= FILESIZE){
-    clearTimeout(drawTimeout);
     fullStorage();
     Bangle.buzz();
     Bangle.buzz();
@@ -878,16 +735,7 @@ let altB = new ArrayBuffer(8);
 let altBDataView = new DataView(altB);
 let altBAddr = E.getAddressOf(altBDataView.buffer,true);
 
-var supervisorname = "";
-var subjectname = "";
-var fastUpdateIntervall = false;
-
 let recordAltitude = false;
-let jsMath = false;
-let outputXML = false;
-
-let filenameSupervisor = false;
-let filenameSubject = false;
 let filenameDate = false;
 
 let maxIndex = 768;
@@ -902,33 +750,6 @@ let barometerActive = false;
 let hrmActive = false;
 let compassActive = false;
 
-function writeNames(){
-  let lengthName = supervisorname.length;
-  arrayIndex = historiographer.writeByte(lengthName);
-
-  let charToWrite = 0;
-  for(let i=0; i<lengthName;i ++) {
-    charToWrite = supervisorname[i].charCodeAt(0);
-    arrayIndex = historiographer.writeByte(charToWrite);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-  }
-
-  lengthName = subjectname.length;
-  arrayIndex = historiographer.writeByte(lengthName);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-
-  for(let i=0; i<lengthName;i ++) {
-    charToWrite = subjectname[i].charCodeAt(0);
-    arrayIndex = historiographer.writeByte(charToWrite);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-  }
-}
 
 var gpsSkips = 0;
 function onGPS(gps){
@@ -944,7 +765,7 @@ function onGPS(gps){
         longBDataView.setFloat64(0,gps.lon,true);
         altBDataView.setFloat64(0,gps.alt,true);
 
-        var writeOut = historiographer.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
+        var writeOut = awapp.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
         if(writeOut == true){
           writeToFlash();
         }
@@ -962,7 +783,7 @@ function onGPS(gps){
         longBDataView.setFloat64(0,gps.lon,true);
         altBDataView.setFloat64(0,gps.alt,true);
 
-        var writeOut = historiographer.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
+        var writeOut = awapp.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
         if(writeOut == true){
           writeToFlash();
         }
@@ -993,7 +814,7 @@ function onBarometer(baro){
       if(recordAltitude){
         pressAltBDataView.setFloat64(0,baro.altitude,true);
       }
-      var writeOut = historiographer.writeBarometer(tempBAddr,pressBAddr,pressAltBAddr,deltaTime);
+      var writeOut = awapp.writeBarometer(tempBAddr,pressBAddr,pressAltBAddr,deltaTime);
       if(writeOut == true){
         writeToFlash();
       }
@@ -1012,7 +833,7 @@ function onHRM(h){
     lastTimestamp = timestamp;
 
     var ppg = h.vcPPG;
-    var writeOut = historiographer.writeHRM(ppg,deltaTime);
+    var writeOut = awapp.writeHRM(ppg,deltaTime);
     if(writeOut == true){
       writeToFlash();
     }
@@ -1032,11 +853,11 @@ function onCompass(c){
       var z = c.z;
 
       var heading = c.heading;
-      historiographer.compassData(x,y,z);
+      awapp.compassData(x,y,z);
 
       compassBDataView.setFloat64(0,heading,true);
 
-      var writeOut = historiographer.writeCompass(compassBAddr,deltaTime);
+      var writeOut = awapp.writeCompass(compassBAddr,deltaTime);
       if(writeOut == true){
         writeToFlash();
       }
@@ -1060,7 +881,7 @@ function onAccel(a){
       var y = a.y * 8192.0;
       var z = a.z * 8192.0;  
 
-      var writeOut = historiographer.writeAccelerometer(x,y,z,deltaTime);
+      var writeOut = awapp.writeAccelerometer(x,y,z,deltaTime);
       if(writeOut == true){
         writeToFlash();
       }
@@ -1082,7 +903,7 @@ function onMagnetude(a){
       lastTimestamp = timestamp;
       var mag = a.mag * 8192.0;
 
-      var writeOut = historiographer.writeMagnetude(mag,deltaTime);
+      var writeOut = awapp.writeMagnetude(mag,deltaTime);
       if(writeOut == true){
         writeToFlash();
       }
@@ -1094,80 +915,6 @@ function onMagnetude(a){
   }
 }
 
-function configureSensors(){
-  if(fastUpdateIntervall == true){
-    Bangle.setPollInterval(10);
-  }
-  if(selectedHRM != 0){
-    let options = Bangle.getOptions();
-    options.hrmPollInterval = hrmSpeeds[selectedHRM];
-    Bangle.setOptions(options);
-    Bangle.setHRMPower(true, appID);
-    historiographer.setHRM(true);
-    hrmActive = true;
-  }
-    
-  if(selectedGPSspeed != 0){
-    Bangle.setGPSPower(1);
-    gpsActive = true;
-    historiographer.setGPS(true);
-    if(powersavingGPS==true){
-       gpsTurnOnIntervallFunction=setInterval(gpsTurnON,GPSspeed[selectedGPSspeed]*1000);
-    }
-  }
-    
-  if(selectedBarometer != 0){
-    Bangle.setBarometerPower(1, appID);
-    barometerActive = true;
-    historiographer.setBarometer(true);
-  }
-    
-  if(selectedCompass!= 0){
-    Bangle.setCompassPower(1, appID);
-    compassActive = true;
-    historiographer.setCompass(true);
-  }
-    
-  if(selectedMagnetude!= 0){
-    powerMagnetude = true;
-    historiographer.setMagnetude(true);
-  }
-    
-  if(selectedAccelerometer!= 0){
-    powerAccelerometer = true;
-    historiographer.setAccelerometer(true);
-  }
-}
-
-function writeConfiguration(){
-  
-  require("Storage").erase("user.bin");
-  require("Storage").compact(true);
-  
-  writeBuffer = new ArrayBuffer(maxIndex);
-  writeBufferDataView = new DataView(writeBuffer);
-  writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
-  
-  historiographer.initArray(writeBufferAddr, maxIndex);
-  writeNames();
-  configureSensors();
-  historiographer.writeIDsToArray();
-  historiographer.writeOptions1(recordAltitude,jsMath, outputXML);
-  historiographer.writeOptions2(filenameSupervisor,filenameSubject, filenameDate);
-  var time = Math.round(Date.now());
-  lastTimestamp = time;
-  var date = Date(time);
-  historiographer.writeDate(date.getFullYear(), date.getMonth(), date.getDate());
-  var writeOut = historiographer.writeTime(date.getHours(), date.getMinutes());
-
-  if(writeOut == true){
-    writeToFlash();
-  }
-
-  Bangle.buzz();
-  Bangle.buzz();
-  started = true;
-}
 
 Bangle.on('GPS',onGPS);
 Bangle.on('pressure', onBarometer);
@@ -1187,90 +934,6 @@ Bangle.on('HRM-raw', onHRM);
 
 let lastTimestamp = 0;
 
-var hrmSpeeds = ["Off",10,20,40,80,160,200];
-var hrmSpeedsText = ["Off","10ms","20ms","40ms","80ms","160ms","200ms"];
-var selectedHRM = 0;
-
-var barometerSkips = ["Off",0,1,2,3,5,10,20,50];
-var barometerSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedBarometer = 0;
-
-var magnetudeSkips = ["Off",0,1,2,3,5,10,20,50];
-var magnetudeSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedMagnetude = 0;
-
-var accelerometerSkips = ["Off",0,1,2,3,5,10,20,50];
-var accelerometerSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedAccelerometer = 0;
-
-var compassSkips = ["Off",0,1,2,3,4,5,10,20,40];
-var compassSkipsText =["Off",0,1,2,3,4,5,10,20,40];
-var selectedCompass = 0;
-
-var GPSspeed = ["Off",0,29,59,899,1799,3599];
-var GPSspeedText = ["Off","1s","30s","1min","15min", "30min", "1h" ];
-var selectedGPSspeed = 0;
-
-var num = 9000;
-var profiles = require("Storage").readJSON("availableConfigs.json", true).configs;
-profiles.unshift("Custom");
-
-var currentProfile = profiles[0];
-var passphrase = "test";
-let startedVisual = false;
-
-function loadProfile(id){
-  
-  if(id != 0){
-    currentProfile = profiles[id];
-
-    var setting = require("Storage").readJSON(currentProfile+".json", true);
-    supervisorname = setting.supervisorname;
-
-    FILESIZE = setting.fileSize *1024;
-    maxIndex = setting.ramSize;
-
-    hrmSpeedsText = setting.hrmText;
-    selectedHRM = setting.hrmSpeed;
-
-    barometerSkips = setting.barometerSkips;
-    barometerSkipsText = setting.barometerSkipsText;
-    selectedBarometer = setting.barometer;
-
-    magnetudeSkips = setting.magnetudeSkips;
-    magnetudeSkipsText = setting.magnetudeSkipsText;
-    selectedMagnetude = setting.magnetude;
-
-    accelerometerSkips = setting.accelerometerSkips;
-    accelerometerSkipsText = setting.accelerometerSkipsText;
-    selectedAccelerometer = setting.accelerometer;
-
-    compassSkips = setting.compassSkips;
-    compassSkipsText = setting.compassSkipsText;
-    selectedCompass = setting.compass;
-
-    GPSspeed = setting.gPSspeedSeconds;
-    GPSspeedText = setting.gPSspeedText;
-    selectedGPSspeed = setting.gpsSpeed;
-    powersavingGPS = setting.gpsEnergysaving;
-
-    batteryNotifiyPercent = setting.batteryNotifiy;
-    if(batteryNotifiyPercent){batteryNotifiyAction = true;}
-    storageNotifiy = setting.storageNotifiy * 1024;
-    if(storageNotifiy){storageNotifiyAction = true;}
-    batterySavePercent = setting.energySaving;
-    storageSave = setting.storageSaving * 1024;
-    powerTurnoffBattery = setting.turnOffEnergy;
-    if(powerTurnoffBattery){batterySaveAction = true;}
-    powerTurnoffStorage = setting.turnOffStorage;
-    if(powerTurnoffStorage){storageSaveAction = true;}
-    passphrase = setting.unlockPhrase;
-    reloadMenus();
-  }
-  else{
-    currentProfile = profiles[0];
-  }
-}
 // First menu
 var mainmenu = {
   "" : { "title" : "Main Menu" },
@@ -1440,64 +1103,6 @@ submenuStorageSaving = {
       }, 
   "Sensors to Stop" : function() { E.showMenu(submenuStorageSavingDevices); },
 };
-submenuBatterySaving = {
-  "" : { "title" : "Saving" },
-  "< Back" : function() { E.showMenu(menuSettings); },
-  "Battery" : {
-    value : batterySavePercent,
-    min:0,max:100,step:5,
-    onchange : v => {
-      batterySaveAction = true;
-      batterySavePercent = v;
-    }
-      },
-  "Sensors to Stop" : function() { E.showMenu(submenuBatterySavingDevices); },
-  "10 ms Updates" : {
-    value : fastUpdateIntervall,
-    onchange : v => { fastUpdateIntervall = v;}
-  }
-};
-
-submenuClock = {
-  "< Back" : function() { 
-      clearTimeout(drawTimeout);
-      E.showMenu(unlockScreen);
-      clearTimeout(drawTimeout);
-                        }
-};
-unlockScreen = {
-  "Unlock & Stop" : function() { 
-    E.showMenu();
-    require("textinput").input({text:""}).then(result => {
-      console.log("The user entered: ", result);
-      if(result == passphrase){
-        started = false;
-        
-        var timestamp = Math.round(Date.now());
-        var deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;
-        
-        var overflow = historiographer.writeEndID(deltaTime)
-        writeToFlash();
-        if(overflow == false){
-          writeToFlash();
-        }
-        
-        WIDGETS["widhistorio"].reset();
-        
-        E.showMenu(mainmenu);
-      }
-      else{
-        E.showMenu(unlockScreen);
-      }
-    });
-                        },
-  "Clock" : function() {
-    E.showMenu(submenuClock);
-    draw();
-                        },
-};
-
 
 submenuBatterySavingDevices = {
   "" : { "title" : "Shutoff" },
@@ -1527,47 +1132,7 @@ submenuBatterySavingDevices = {
     onchange : v => { powerTurnoffBattery[5]=v; }
   },
 };
-submenuOutputSettings = {
-  "" : { "title" : "Output" },
-  "< Back" : function() { E.showMenu(mainmenu); },
-  "RecordHeight" : {
-    value : recordAltitude,
-    onchange : v => {
-      recordAltitude = v;
-    }
-      },
-  "JSMath" : {
-    value : jsMath,
-    min:0,max:100,step:5,
-    onchange : v => {
-      jsMath = v;
-    }
-      },
-  "XML" : {
-    value : outputXML,
-    onchange : v => {
-      outputXML = v;
-    }
-      },
-  "File Supervisor" : {
-    value : filenameSupervisor,
-    onchange : v => {
-      filenameSupervisor = v;
-    }
-      },
-  "File Subject" : {
-    value : filenameSubject,
-    onchange : v => {
-      filenameSubject = v;
-    }
-      },
-  "File Date" : {
-    value : filenameDate,
-    onchange : v => {
-      filenameDate = v;
-    }
-      },
-};
+
 submenuStorageSavingDevices = {
   "" : { "title" : "Shutoff" },
   "< Back" : function() { E.showMenu(submenuStorageSaving); },
@@ -1598,28 +1163,6 @@ submenuStorageSavingDevices = {
 };
 }
 
-Bangle.on('touch', function(button, xy) {
-  if(showingWarning){
-    if(xy.x > 30 && xy.x < 140)
-    {
-      if(xy.y > 120)
-      {
-        E.showMenu(submenuClock);
-        draw();
-      }
-    }
-  }
-  if(noMoreStorage){
-    if(xy.x > 30 && xy.x < 140)
-    {
-      if(xy.y > 120)
-      {
-        load();
-      }
-    }
-  }
-});
-
 var fullStorage = function(){
   g.clear(true);
 
@@ -1635,39 +1178,7 @@ var fullStorage = function(){
   noMoreStorage = true;
 };
 
-var warnings = function(){
-  showingWarning = true;
-  g.clear(true);
 
-  g.setFont("Vector",15);
-  g.drawString("Please visit Supervisor", 5,110,true);
-
-  if(file.offset > storageNotifiy)
-  {
-    g.drawString("Low storage", 5,30,true);
-    WIDGETS["widhistorio"].setStorageState(1);
-    storageNotifiyAction = false;
-  }
-  if(E.getBattery()<batteryNotifiyPercent)
-  {
-    g.drawString("Low battery", 5,50,true);
-    WIDGETS["widhistorio"].setBatteryState(1);
-    batteryNotifiyAction = false;
-  }
-  if(file.offset > storageSave)
-  {
-    g.drawString("Very low storage", 5,70,true);
-    WIDGETS["widhistorio"].setStorageState(2);
-  }
-  if(E.getBattery() < batterySavePercent)
-  {
-    WIDGETS["widhistorio"].setBatteryState(2);
-    g.drawString("Very low battery", 5,90,true);
-  }
-  g.drawRect(40,130,130,170);
-  g.setFont("Vector",20);
-  g.drawString("OK",70,140);
-};
 reloadMenus();
 Bangle.loadWidgets();
 Bangle.drawWidgets();
