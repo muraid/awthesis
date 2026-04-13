@@ -12,6 +12,7 @@
     interval: 10, // seconds
     emaEnabled: false,
     emaInterval: 3600, // seconds (1 hour default)
+    rawMode: false
   };
 
   const config = {
@@ -21,7 +22,7 @@
   };
 
   // 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery + 1 temp + 1 padding = 11 bytes per row
-  const bytesPerRow = 11;
+  const bytesPerRow = 14;
   const totalFileLen = 28600;
 
   let rows = [];
@@ -70,6 +71,10 @@
   let sixMWTInterval;
   let sixMWTSeconds = 360; // 6 minutes
 
+  let lastAcc = null;
+  let lastTemp = null;
+
+
 //function to send messages
   function send(line) {
     Bluetooth.println(line);
@@ -110,7 +115,7 @@ function flushRows() {
   rows = [];
 }
 
-function appendRow(ts, step, accel, hr, conf, batt, temp) {
+function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
   let row = new Uint8Array(bytesPerRow);
 
   // timestamp (4 bytes)
@@ -118,12 +123,15 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   row.set(timestampBytes, 0);
 
   row[4] = step || 0;
-  row[5] = accel || 0;
-  row[6] = hr || 0;
-  row[7] = conf || 0;
-  row[8] = batt || 0;
-  row[9] = temp || 0;
-  row[10] = 0; // padding
+  row[5] = ax || 0;
+  row[6] = ay || 0;
+  row[7] = az || 0;
+  row[8] = hr || 0;
+  row[9] = conf || 0;
+  row[10] = batt || 0;
+  row[11] = temp || 0;
+  row[12] = 0;
+  row[13] = 0;
 
   rows.push(row);
   if (rows.length >= 50) flushRows();
@@ -329,6 +337,7 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   }
 
   function onACC(a) {
+    lastAcc = a;
     // LOGGING (aggregated rörelse)
     if (isAggregated && accelOn) {
       accelSum += Math.abs(a.mag - 1);
@@ -386,6 +395,7 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   });
 
   Bangle.on("pressure", b => {
+    lastTemp = b.temperature;
     // TEMP logging (aggregated)
     if (isAggregated && tempOn) {
       tempSum += b.temperature;
@@ -415,9 +425,9 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   // ---------------- DATA COLLECTION (AGGREGATED) ----------------
 
   function startCollection() {
-    if (isAggregated) return;
+    isAggregated = !settings.rawMode;
+    let isRaw = settings.rawMode;
 
-    isAggregated = true;
     Bangle.buzz(300);
 
     storage.erase(config.filename);
@@ -425,17 +435,47 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
     config.appendPos = 0;
     rows = [];
 
+    // Start sensors
     if (settings.sensors.includes("steps")) startSteps();
     if (settings.sensors.includes("accel")) startAccel();
     if (settings.sensors.includes("temp")) startTemp();
-
     if (settings.sensors.includes("hr")) {
       startHRM();
       hrmBuffer = [];
-      hrTimer = setInterval(measureHR, 20000);
+      if (!isRaw) hrTimer = setInterval(measureHR, 20000);
     }
 
-    if (settings.emaEnabled) startEMA();
+    if (settings.emaEnabled && !isRaw) startEMA();
+
+      // ---------------- RAW LOGGING ----------------
+  if (isRaw) {
+  logTimer = setInterval(() => {
+    let ts = Math.round(Date.now() / 1000);
+    let batt = E.getBattery();
+
+    let ax = lastAcc ? Math.round((lastAcc.x + 2) * 50) : 0;
+    let ay = lastAcc ? Math.round((lastAcc.y + 2) * 50) : 0;
+    let az = lastAcc ? Math.round((lastAcc.z + 2) * 50) : 0;
+
+    let tempVal = lastTemp ? Math.round(lastTemp) : 0;
+
+    appendRow(
+      ts,
+      settings.sensors.includes("steps") ? currentStepCount : 0,
+      ax, ay, az,
+      settings.sensors.includes("hr") ? hr : 0,
+      settings.sensors.includes("hr") ? hrConfidence : 0,
+      batt,
+      settings.sensors.includes("temp") ? tempVal : 0
+    );
+
+    currentStepCount = 0;
+
+  }, settings.interval * 1000);
+
+  return;
+}
+
 
     logTimer = setInterval(() => {
       let ts = Math.round(Date.now() / 1000);
@@ -449,13 +489,14 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
 
       appendRow(
         ts,
-        settings.sensors.includes("steps") ? currentStepCount : null,
-        settings.sensors.includes("accel") ? accelByte : null,
-        settings.sensors.includes("hr") ? hr : null,
-        settings.sensors.includes("hr") ? hrConfidence : null,
+        settings.sensors.includes("steps") ? currentStepCount : 0,
+        0, 0, 0, // inga råvärden i aggregated mode
+        settings.sensors.includes("hr") ? hr : 0,
+        settings.sensors.includes("hr") ? hrConfidence : 0,
         batt,
-        settings.sensors.includes("temp") ? tempByte : null
+        settings.sensors.includes("temp") ? tempByte : 0
       );
+
 
       currentStepCount = 0;
       accelSum = 0;
@@ -467,29 +508,29 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   }
 
   function stopCollection() {
-    if (!isAggregated) return;
-    isAggregated = false;
-    
-    if (rows.length > 0) flushRows();
+  if (rows.length > 0) flushRows();
 
-    if (logTimer) clearInterval(logTimer);
-    if (hrTimer) clearInterval(hrTimer);
+  if (logTimer) clearInterval(logTimer);
+  if (hrTimer) clearInterval(hrTimer);
 
-    logTimer = null;
-    hrTimer = null;
+  logTimer = null;
+  hrTimer = null;
 
-    stopSteps();
-    stopAccel();
-    stopHRM();
-    stopTemp();
-    stopPressure();
-    stopMag();
-    stopGps();
+  stopSteps();
+  stopAccel();
+  stopHRM();
+  stopTemp();
+  stopPressure();
+  stopMag();
+  stopGps();
 
-    stopEMA();
+  stopEMA();
 
-    Bangle.buzz(200);
-  }
+  isAggregated = false;
+
+  Bangle.buzz(200);
+}
+
 
   // ---------------- BLUETOOTH COMMANDS (STREAMING) ----------------
 
@@ -644,6 +685,16 @@ function appendRow(ts, step, accel, hr, conf, batt, temp) {
   function showLoggingMenu() {
     E.showMenu({
       "": { title: "Logging" },
+      
+      "Mode (Raw/Agg)": {
+      value: settings.rawMode,
+      format: v => v ? "Raw" : "Aggregated",
+      onchange: v => {
+        settings.rawMode = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
+    },
+
       "Choose sensors": () => showSensorList(),
       "Set Interval": () => intervalMenu(),
       "Start": () => startCollection(),
