@@ -12,7 +12,8 @@
     interval: 10, // seconds
     emaEnabled: false,
     emaInterval: 3600, // seconds (1 hour default)
-    rawMode: false
+    rawMode: false,
+    ramSize: 50
   };
 
   const config = {
@@ -22,8 +23,9 @@
   };
 
   // 4 bytes timestamp + 1 step + 1 accel + 1 HR + 1 conf + 1 battery + 1 temp + 1 padding = 11 bytes per row
-  const bytesPerRow = 14;
-  const totalFileLen = 28600;
+  const RAW_FILE_LEN = 60000;
+  const AGG_FILE_LEN = 20000;
+
 
   let rows = [];
 
@@ -73,7 +75,8 @@
 
   let lastAcc = null;
   let lastTemp = null;
-
+  let lastMag = null;
+  let lastGPS = null;
 
 //function to send messages
   function send(line) {
@@ -94,62 +97,107 @@
 function flushRows() {
   if (rows.length === 0) return;
 
-  let block = new Uint8Array(rows.length * bytesPerRow);
-  let pos = 0;
+  let rowSize = settings.rawMode ? 20 : 9;
+  let block = new Uint8Array(rows.length * rowSize);
 
+  let pos = 0;
   for (let r of rows) {
     block.set(r, pos);
-    pos += bytesPerRow;
+    pos += rowSize;
   }
 
-  // kontrollera att vi inte går över maxlängd
-  if (config.appendPos + block.length > totalFileLen) {
+  if (config.appendPos + block.length > config.totalLen) {
     console.log("FILE FULL");
     return;
   }
 
-  // skriv blocket med totalFileLen så Espruino reserverar hela filen
-  storage.write(config.filename, block, config.appendPos, totalFileLen);
-
+  storage.write(config.filename, block, config.appendPos, config.totalLen);
   config.appendPos += block.length;
   rows = [];
 }
 
-function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
-  let row = new Uint8Array(bytesPerRow);
+function appendRawRow() {
+  let row = new Uint8Array(20);
+  let pos = 0;
 
-  // timestamp (4 bytes)
-  let timestampBytes = numToBytes(ts, 4);
-  row.set(timestampBytes, 0);
-
-  row[4] = step || 0;
-  row[5] = ax || 0;
-  row[6] = ay || 0;
-  row[7] = az || 0;
-  row[8] = hr || 0;
-  row[9] = conf || 0;
-  row[10] = batt || 0;
-  row[11] = temp || 0;
-  row[12] = 0;
-  row[13] = 0;
-
-  rows.push(row);
-  if (rows.length >= 50) flushRows();
-}
-
-
-  function appendEventRow(code) {
-  let row = new Uint8Array(bytesPerRow);
+  // timestamp
   let ts = Math.round(Date.now() / 1000);
+  row.set(numToBytes(ts, 4), pos); pos += 4;
 
+  // steps
+  row[pos++] = currentStepCount & 255;
+
+  // hr
+  row[pos++] = hr & 255;
+
+  // temp (baro temp)
+  row[pos++] = lastTemp ? Math.round(lastTemp) : 0;
+
+  // accel scaled
+  let ax = lastAcc ? Math.round(lastAcc.x * 50) : 0;
+  let ay = lastAcc ? Math.round(lastAcc.y * 50) : 0;
+  let az = lastAcc ? Math.round(lastAcc.z * 50) : 0;
+  row[pos++] = ax;
+  row[pos++] = ay;
+  row[pos++] = az;
+
+  // mag scaled
+  let mx = lastMag ? Math.round(lastMag.x) : 0;
+  let my = lastMag ? Math.round(lastMag.y) : 0;
+  let mz = lastMag ? Math.round(lastMag.z) : 0;
+  row[pos++] = mx;
+  row[pos++] = my;
+  row[pos++] = mz;
+
+  // gps lat/lon scaled
+  let lat = lastGPS ? Math.round(lastGPS.lat * 10000) : 0;
+  let lon = lastGPS ? Math.round(lastGPS.lon * 10000) : 0;
+  row.set(numToBytes(lat, 2), pos); pos += 2;
+  row.set(numToBytes(lon, 2), pos); pos += 2;
+
+  // battery
+  let batt = Math.round(E.getBattery() * 10);
+  row.set(numToBytes(batt, 2), pos); pos += 2;
+
+  // padding
+  row[pos++] = 0;
+
+  rows.push(row);
+  if (rows.length >= settings.ramSize) flushRows();
+}
+
+function appendAggRow(ts) {
+  let row = new Uint8Array(9);
+
+  row.set(numToBytes(ts, 4), 0);
+
+  row[4] = currentStepCount & 255;
+
+  let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
+  row[5] = Math.min(255, Math.round(accelAvg * 100));
+
+  row[6] = hr & 255;
+  row[7] = hrConfidence & 255;
+
+  let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
+  row[8] = Math.round(tempAvg);
+
+  rows.push(row);
+  if (rows.length >= settings.ramSize) flushRows();
+}
+
+function appendEventRow(code) {
+  let rowSize = settings.rawMode ? 20 : 9;
+  let row = new Uint8Array(rowSize);
+
+  let ts = Math.round(Date.now() / 1000);
   let timestampBytes = numToBytes(ts, 4);
   row.set(timestampBytes, 0);
 
-  row[4] = code;
+  row[4] = code; // event code
 
   rows.push(row);
 }
-
 
   // ---------------- BAROMETER POWER ----------------
 
@@ -285,11 +333,14 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
       const ms = Date.now() - startTime;
       send(`DATA,HR,${ms},${d.bpm},${d.confidence || 0}`);
     }
-
     // AGGREGATED: buffra för "bästa 20s"
     if (isAggregated && hrmBuffer && d.confidence > 0 && d.bpm > 0) {
       hrmBuffer.push(d);
     }
+    if (settings.rawMode) {
+    hr = d.bpm;
+    hrConfidence = d.confidence;
+}
   }
 
   // HR-mätning: bästa HR under senaste 20 sek
@@ -392,6 +443,7 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
       const ms = Date.now() - startTime;
       send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
     }
+    lastMag = m;
   });
 
   Bangle.on("pressure", b => {
@@ -420,6 +472,7 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
       const ms = Date.now() - startTime;
       send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
     }
+    lastGPS = g;
   });
 
   // ---------------- DATA COLLECTION (AGGREGATED) ----------------
@@ -428,54 +481,56 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
     isAggregated = !settings.rawMode;
     let isRaw = settings.rawMode;
 
+    // välj fil baserat på mode
+    if (isRaw) {
+      config.filename = "collectedRawData.bin";
+      config.totalLen = RAW_FILE_LEN;
+    } else {
+      config.filename = "collectedAggData.bin";
+      config.totalLen = AGG_FILE_LEN;
+    }
+
     Bangle.buzz(300);
 
     storage.erase(config.filename);
-    storage.write(config.filename, new Uint8Array(totalFileLen), 0, totalFileLen);
+    storage.write(config.filename, new Uint8Array(config.totalLen), 0, config.totalLen);
     config.appendPos = 0;
     rows = [];
 
     // Start sensors
-    if (settings.sensors.includes("steps")) startSteps();
-    if (settings.sensors.includes("accel")) startAccel();
-    if (settings.sensors.includes("temp")) startTemp();
-    if (settings.sensors.includes("hr")) {
-      startHRM();
-      hrmBuffer = [];
-      if (!isRaw) hrTimer = setInterval(measureHR, 20000);
+    // Start sensors for aggregated mode only
+    if (!isRaw) {
+      if (settings.sensors.includes("steps")) startSteps();
+      if (settings.sensors.includes("accel")) startAccel();
+      if (settings.sensors.includes("temp")) startTemp();
+      if (settings.sensors.includes("hr")) {
+        startHRM();
+        hrmBuffer = [];
+        hrTimer = setInterval(measureHR, 20000);
+      }
     }
 
     if (settings.emaEnabled && !isRaw) startEMA();
 
       // ---------------- RAW LOGGING ----------------
-  if (isRaw) {
-  logTimer = setInterval(() => {
-    let ts = Math.round(Date.now() / 1000);
-    let batt = E.getBattery();
+      if (isRaw) {
 
-    let ax = lastAcc ? Math.round((lastAcc.x + 2) * 50) : 0;
-    let ay = lastAcc ? Math.round((lastAcc.y + 2) * 50) : 0;
-    let az = lastAcc ? Math.round((lastAcc.z + 2) * 50) : 0;
+      // Start ALL sensors needed for raw logging
+      startSteps();
+      startAccel();
+      startHRM();
+      startTemp();      // baro temp
+      startPressure();  // barometer
+      startMag();       // magnetometer
+      startGps();       // GPS
 
-    let tempVal = lastTemp ? Math.round(lastTemp) : 0;
+      logTimer = setInterval(() => {
+        appendRawRow();
+        currentStepCount = 0;
+      }, settings.interval * 1000);
 
-    appendRow(
-      ts,
-      settings.sensors.includes("steps") ? currentStepCount : 0,
-      ax, ay, az,
-      settings.sensors.includes("hr") ? hr : 0,
-      settings.sensors.includes("hr") ? hrConfidence : 0,
-      batt,
-      settings.sensors.includes("temp") ? tempVal : 0
-    );
-
-    currentStepCount = 0;
-
-  }, settings.interval * 1000);
-
-  return;
-}
-
+      return;
+    }
 
     logTimer = setInterval(() => {
       let ts = Math.round(Date.now() / 1000);
@@ -487,7 +542,7 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
       let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
       let tempByte = Math.round(tempAvg); // °C som heltal
 
-      appendRow(
+      appendAggRow(
         ts,
         settings.sensors.includes("steps") ? currentStepCount : 0,
         0, 0, 0, // inga råvärden i aggregated mode
@@ -686,11 +741,32 @@ function appendRow(ts, step, ax, ay, az, hr, conf, batt, temp) {
     E.showMenu({
       "": { title: "Logging" },
       
-      "Mode (Raw/Agg)": {
+       "Raw data": {
       value: settings.rawMode,
-      format: v => v ? "Raw" : "Aggregated",
       onchange: v => {
-        settings.rawMode = v;
+        settings.rawMode = true;
+        storage.writeJSON("awapp.settings.json", settings);
+        showLoggingMenu(); // uppdatera menyn visuellt
+      }
+    },
+
+    "Aggregated data": {
+      value: !settings.rawMode,
+      onchange: v => {
+        settings.rawMode = false;
+        storage.writeJSON("awapp.settings.json", settings);
+        showLoggingMenu(); // uppdatera menyn visuellt
+      }
+    },
+
+    "Ramsize": {
+      value: settings.ramSize,
+      min: 1,
+      max: 6144,
+      step: 256,
+      format: v => v + " rows",
+      onchange: v => {
+        settings.ramSize = v;
         storage.writeJSON("awapp.settings.json", settings);
       }
     },
