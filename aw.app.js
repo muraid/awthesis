@@ -730,6 +730,7 @@ function appendEventRow(code) {
           } else {
             settings.sensors = settings.sensors.filter(x => x !== s);
           }
+          storage.writeJSON("awapp.settings.json", settings); 
         }
       };
     });
