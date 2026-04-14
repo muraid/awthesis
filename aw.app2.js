@@ -652,7 +652,7 @@
 
 let writeBuffer = new ArrayBuffer(0);
 let writeBufferDataView = new DataView(writeBuffer);
-let writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
+let writeBufferAddr = E.getAddressOf(writeBuffer,true);
 awapp.initArray(writeBufferAddr, maxIndex);
 
   const storage = require("Storage");
@@ -728,16 +728,6 @@ awapp.initArray(writeBufferAddr, maxIndex);
 //function to send messages
   function send(line) {
     Bluetooth.println(line);
-  }
-
-  //little endian num to bytes
-  function numToBytes(num, len) {
-    let arr = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      arr[i] = num & 255;
-      num >>= 8;
-    }
-    return arr;
   }
 
   // ---------------- FILE LOGGING ----------------
@@ -824,7 +814,7 @@ function appendEventRow(code) {
   let row = new Uint8Array(rowSize);
 
   let ts = Math.round(Date.now() / 1000);
-  let timestampBytes = numToBytes(ts, 4);
+  let timestampBytes = numToBytes(ts, 4); //denna kan tas bort eftersom att vi inte har kvar little endian
   row.set(timestampBytes, 0);
 
   row[4] = code; // event code
