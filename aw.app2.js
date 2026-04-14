@@ -725,11 +725,6 @@ awapp.initArray(writeBufferAddr, maxIndex);
   let sixMWTInterval;
   let sixMWTSeconds = 360; // 6 minutes
 
-  let lastAcc = null;
-  let lastTemp = null;
-  let lastMag = null;
-  let lastGPS = null;
-
 //function to send messages
   function send(line) {
     Bluetooth.println(line);
@@ -982,7 +977,17 @@ function appendEventRow(code) {
     if (settings.rawMode) {
     hr = d.bpm;
     hrConfidence = d.confidence;
-}
+    }
+
+    // ================= RAW (C logging) =================
+    if (settings.rawMode && hrmOn && !isAggregated) {
+
+      let ppg = d.vcPPG !== undefined ? d.vcPPG : d.bpm;
+
+      if (ppg > 0 && d.confidence > 50) {
+        writeSensor(awapp.writeHRM, [ppg], ts.hrm);
+      }
+    }
   }
 
   // HR-mätning: bästa HR under senaste 20 sek
@@ -1026,8 +1031,7 @@ function appendEventRow(code) {
     const ms = Date.now() - startTime;
     send(`DATA,STEPS,${ms},${currentStepCount}`);
   }
-
-  }
+}
 
   function onACC(a) {
     lastAcc = a;
@@ -1042,6 +1046,24 @@ function appendEventRow(code) {
       const ms = Date.now() - startTime;
       send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
     }
+    // ================= RAW LOGGING =================
+      if (settings.rawMode && accelOn && !isAggregated) {
+
+        let timestamp = Date.now();
+        let deltaTime = timestamp - lastTimestampAcc;
+        lastTimestampAcc = timestamp;
+
+        // konvertera till int16 (matchar C-kod)
+        let x = (a.x * 8192) | 0;
+        let y = (a.y * 8192) | 0;
+        let z = (a.z * 8192) | 0;
+
+        let writeOut = awapp.writeAccelerometer(x, y, z, deltaTime);
+
+        if (writeOut) {
+          writeToFlash();
+        }
+      }
   }
 
   //function for 6 minutes walking test
@@ -1085,6 +1107,22 @@ function appendEventRow(code) {
       const ms = Date.now() - startTime;
       send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
     }
+    // ================= RAW LOGGING =================
+      if (settings.rawMode && magOn && !isAggregated) {
+
+        let timestamp = Date.now();
+        let deltaTime = timestamp - lastTimestampMag;
+        lastTimestampMag = timestamp;
+
+        // magnitude (matchar din C-funktion)
+        let mag = (m.mag * 8192) | 0;
+
+        let writeOut = awapp.writeMagnetude(mag, deltaTime);
+
+        if (writeOut) {
+          writeToFlash();
+        }
+      }
     lastMag = m;
   });
 
@@ -1107,113 +1145,202 @@ function appendEventRow(code) {
       const ms = Date.now() - startTime;
       send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
     }
+    // ================= RAW LOGGING =================
+      if (settings.rawMode && pressureOn && !isAggregated) {
+
+        if (!isNaN(b.pressure) && !isNaN(b.temperature)) {
+
+          let timestamp = Date.now();
+          let deltaTime = timestamp - lastTimestampBaro;
+          lastTimestampBaro = timestamp;
+
+          // skriv till buffers
+          tempBDataView.setFloat64(0, b.temperature, true);
+          pressBDataView.setFloat64(0, b.pressure, true);
+          pressAltBDataView.setFloat64(0, b.altitude || 0, true);
+
+          let writeOut = awapp.writeBarometer(
+            tempBAddr,
+            pressBAddr,
+            pressAltBAddr,
+            deltaTime
+          );
+
+          if (writeOut) {
+            writeToFlash();
+          }
+        }
+      }
   });
+
 
   Bangle.on("GPS", g => {
     if (isStreaming && gpsOn) {
       const ms = Date.now() - startTime;
       send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
     }
+
+     if (settings.rawMode && gpsOn && isAggregated === false) {
+
+      // säkerställ att data är valid
+      if (!isNaN(g.lat) && !isNaN(g.lon) && !isNaN(g.alt)) {
+
+        let timestamp = Date.now();
+        let deltaTime = timestamp - lastTimestamp;
+        lastTimestamp = timestamp;
+
+        // skriv till buffer
+        latBDataView.setFloat64(0, g.lat, true);
+        longBDataView.setFloat64(0, g.lon, true);
+        altBDataView.setFloat64(0, g.alt, true);
+
+        let writeOut = awapp.writeGPS(latBAddr, longBAddr, altBAddr, deltaTime);
+
+        // om buffer full → skriv till flash
+        if (writeOut) {
+          writeToFlash();
+        }
+      }
+    }
+  // spara senaste värde
     lastGPS = g;
   });
 
   // ---------------- DATA COLLECTION (AGGREGATED) ----------------
+  function startAggCollection() {
 
-  function startCollection() {
-    awapp.clear();
-    isAggregated = !settings.rawMode;
-    let isRaw = settings.rawMode;
-
-    // välj fil baserat på mode
-    if (isRaw) {
-      config.filename = "collectedRawData.bin";
-      config.totalLen = RAW_FILE_LEN;
-    } else {
-      config.filename = "collectedAggData.bin";
-      config.totalLen = AGG_FILE_LEN;
-    }
-
-    Bangle.buzz(300);
-
-    storage.erase(config.filename);
-    storage.write(config.filename, new Uint8Array(config.totalLen), 0, config.totalLen);
-    config.appendPos = 0;
-    rows = [];
-
-    // Start sensors
-    // Start sensors for aggregated mode only
-    if (!isRaw) {
-      if (settings.sensors.includes("steps")) {
-        startSteps();
-        Bangle.on("step", onSTEP);
-      }
-      if (settings.sensors.includes("accel")) {
-        startAccel();
-        Bangle.on("accel", onACC);
-      }
-      if (settings.sensors.includes("temp")) startTemp();
-      if (settings.sensors.includes("hr")) {
-        startHRM();
-        Bangle.on("HRM", onHRM);
-        hrmBuffer = [];
-        hrTimer = setInterval(measureHR, 20000);
-      }
-    }
-
-
-    if (settings.emaEnabled && !isRaw) startEMA();
-
-      // ---------------- RAW LOGGING ----------------
-      if (isRaw) {
-
-      // Start ALL sensors needed for raw logging
-      startSteps();
-      startAccel();
-      startHRM();
-      startTemp();      // baro temp
-      startPressure();  // barometer
-      startMag();       // magnetometer
-      startGps();       // GPS
-
-      logTimer = setInterval(() => {
-        appendRawRow();
-        currentStepCount = 0;
-      }, settings.interval * 1000);
-
-      return;
-    }
-
-    logTimer = setInterval(() => {
-      let ts = Math.round(Date.now() / 1000);
-      let batt = E.getBattery();
-
-      let accelAvg = accelSamples ? (accelSum / accelSamples) : 0;
-      let accelByte = Math.min(255, Math.round(accelAvg * 100));
-
-      let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
-      let tempByte = Math.round(tempAvg); // °C som heltal
-
-      appendAggRow(
-        ts,
-        settings.sensors.includes("steps") ? currentStepCount : 0,
-        0, 0, 0, // inga råvärden i aggregated mode
-        settings.sensors.includes("hr") ? hr : 0,
-        settings.sensors.includes("hr") ? hrConfidence : 0,
-        batt,
-        settings.sensors.includes("temp") ? tempByte : 0
-      );
-
-
-      currentStepCount = 0;
-      accelSum = 0;
-      accelSamples = 0;
-      tempSum = 0;
-      tempSamples = 0;
-
-    }, settings.interval * 1000);
+  // ================= SENSOR START =================
+  if (settings.sensors.includes("steps")) {
+    startSteps();
+    Bangle.on("step", onSTEP);
   }
 
-  function stopCollection() {
+  if (settings.sensors.includes("accel")) {
+    startAccel();
+    Bangle.on("accel", onACC);
+  }
+
+  if (settings.sensors.includes("temp")) startTemp();
+
+  if (settings.sensors.includes("hr")) {
+    startHRM();
+    Bangle.on("HRM", onHRM);
+    hrmBuffer = [];
+    hrTimer = setInterval(measureHR, 20000);
+  }
+
+  if (settings.emaEnabled) startEMA();
+
+  // ================= AGG TIMER =================
+  logTimer = setInterval(() => {
+
+    let ts = Math.round(Date.now() / 1000);
+    let batt = E.getBattery();
+
+    let tempAvg = tempSamples ? (tempSum / tempSamples) : 0;
+    let tempByte = Math.round(tempAvg);
+
+    appendAggRow(
+      ts,
+      settings.sensors.includes("steps") ? currentStepCount : 0,
+      0, 0, 0,
+      settings.sensors.includes("hr") ? hr : 0,
+      settings.sensors.includes("hr") ? hrConfidence : 0,
+      batt,
+      settings.sensors.includes("temp") ? tempByte : 0
+    );
+
+    // reset
+    currentStepCount = 0;
+    accelSum = 0;
+    accelSamples = 0;
+    tempSum = 0;
+    tempSamples = 0;
+
+  }, settings.interval * 1000);
+}
+
+function startRawCollection() {
+
+  startSteps();
+  startAccel();
+  startHRM();
+  startTemp();
+  startPressure();
+  startMag();
+  startGps();
+
+  logTimer = setInterval(() => {
+    appendRawRow();
+    currentStepCount = 0;
+  }, settings.interval * 1000);
+}
+
+function startCollection() {
+  
+  stopCollection(); // reset state, helps if/when starting multiple times or switching modes
+  awapp.clear();
+
+  let now = Date.now();
+  lastTimestampMag = now;
+  lastTimestampBaro = now;
+  lastTimestampGPS = now;
+
+  isAggregated = !settings.rawMode;
+  let isRaw = settings.rawMode;
+
+  // ================= FILE SETUP =================
+  if (isRaw) {
+    config.filename = "collectedRawData.bin";
+    config.totalLen = RAW_FILE_LEN;
+  } else {
+    config.filename = "collectedAggData.bin";
+    config.totalLen = AGG_FILE_LEN;
+  }
+
+  Bangle.buzz(300);
+
+  storage.erase(config.filename);
+  storage.write(config.filename, new Uint8Array(config.totalLen), 0, config.totalLen);
+
+  config.appendPos = 0;
+  rows = [];
+
+  // ================= C BUFFER INIT =================
+  writeBuffer = new ArrayBuffer(maxIndex);
+  writeBufferDataView = new DataView(writeBuffer);
+  writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer, true);
+
+  awapp.initArray(writeBufferAddr, maxIndex);
+
+  // ================= SENSOR CONFIG =================
+  awapp.setHRM(settings.sensors.includes("hr"));
+  awapp.setAccelerometer(settings.sensors.includes("accel"));
+
+  awapp.setBarometer(
+    settings.sensors.includes("temp") ||
+    settings.sensors.includes("pressure")
+  );
+
+  awapp.setMagnetude(settings.sensors.includes("mag"));
+  awapp.setGPS(settings.sensors.includes("gps"));
+
+  // ================= WRITE CONFIG HEADER (VIKTIG) =================
+  awapp.writeIDsToArray();
+
+  // ================= START MODE =================
+  if (isRaw) {
+    startRawCollection();
+  } else {
+    startAggCollection();
+  }
+}
+
+function stopCollection() {
+  writeBuffer = null;
+  writeBufferDataView = null;
+  writeBufferAddr = 0;
+  
   if (rows.length > 0) flushRows();
 
   if (logTimer) clearInterval(logTimer);
