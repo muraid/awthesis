@@ -655,7 +655,7 @@ let file = {
 };
 
 let maxIndex = 768;
-let FILESIZE = 0;
+let FILESIZE = 1024 * 1024;
 let writeBuffer = new ArrayBuffer(maxIndex);
 let writeBufferDataView = new DataView(writeBuffer);
 let writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
@@ -713,11 +713,8 @@ function onAccel(a){
     }
 }
 
-
-
 function configureSensors(){    
   if(powerAccelerometer){
-    Bangle.selectedAccelerometer(1);
     historiographer.setAccelerometer(true);
   }
   else{
@@ -784,14 +781,12 @@ submenuSensors = {
       value: powerAccelerometer,
       onchange: v => {
           powerAccelerometer = v;
-          Bangle.getAccel(v ? 1 : 0);
     }
       },
 };
 }
 
 reloadMenus();
-Bangle.getAccel(0);
 Bangle.loadWidgets();
 Bangle.drawWidgets();
 E.showMenu(mainmenu);
