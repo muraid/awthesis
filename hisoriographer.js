@@ -107,9 +107,9 @@ let gpsTurnOnIntervallFunction;
 let powerTurnoffFunctions = [hrmTurnoff,barometerTurnoff,accelTurnoff,magnetudeTurnoff,compassTurnoff,gpsTurnoff];
 
 let batteryNotifiyAction = false;
-let storageNotifiyAction = false;
+//let storageNotifiyAction = false;
 let batteryNotifiyPercent = 0;
-let storageNotifiy = 0;
+//let storageNotifiy = 0;
 
 let batterySaveAction = false;
 let storageSaveAction = false;
@@ -809,7 +809,7 @@ function writeToFlash(){
   if(file.offset < FILESIZE){
     saveData(writeBufferDataView.buffer);
   }
-  
+  /** 
   if(file.offset >=  storageNotifiy && storageNotifiyAction)
   {
   if(showingWarning == false)
@@ -833,7 +833,7 @@ function writeToFlash(){
         if(powerTurnoffStorage[i])
           powerTurnoffFunctions[i](true);
       }
-    }
+    }**/
   }
 
   historiographer.clear();
@@ -1256,8 +1256,8 @@ function loadProfile(id){
 
     batteryNotifiyPercent = setting.batteryNotifiy;
     if(batteryNotifiyPercent){batteryNotifiyAction = true;}
-    storageNotifiy = setting.storageNotifiy * 1024;
-    if(storageNotifiy){storageNotifiyAction = true;}
+    //let storageNotifiy = setting.storageNotifiy * 1024;
+    //if(storageNotifiy){storageNotifiyAction = true;}
     batterySavePercent = setting.energySaving;
     storageSave = setting.storageSaving * 1024;
     powerTurnoffBattery = setting.turnOffEnergy;
@@ -1410,14 +1410,14 @@ submenuSensors = {
 submenuNotify = {
   "" : { "title" : "Notify" },
   "< Back" : function() { E.showMenu(menuSettings); },
-  "Storage (in KB)" : {
+  /***"Storage (in KB)" : {
     value : storageNotifiy,
     min:0,max:6144,step:128,
     onchange : v => {
       storageNotifiyAction = true;
       storageNotifiy = v * 1024;
     }
-      }, 
+      }, */
   "Battery" : {
     value : batteryNotifiyPercent,
     min:0,max:100,step:5,
