@@ -1,10 +1,6 @@
 // Load widgets
 Bangle.loadWidgets();
 
-let powerTurnoffStorage = [false];
-//let powersavingGPS = false;
-
-
 let historiographer= E.compiledC(`
   // void initArray(int, int)
   // void clear()
@@ -788,14 +784,14 @@ submenuSensors = {
       value: powerAccelerometer,
       onchange: v => {
           powerAccelerometer = v;
-          Bangle.setAccelPower(v ? 1 : 0);
+          Bangle.getAccel(v ? 1 : 0);
     }
       },
 };
 }
 
 reloadMenus();
-Bangle.setAccelPower(0);
+Bangle.getAccel(0);
 Bangle.loadWidgets();
 Bangle.drawWidgets();
 E.showMenu(mainmenu);
