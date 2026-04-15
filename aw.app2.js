@@ -1,7 +1,8 @@
 (() => {
   //Bluetooth.setConsole(false);
   Bangle.loadWidgets();
-  Bangle.drawWidgets();
+
+  let maxIndex = 768;
 
   let awapp= E.compiledC(`
   // void initArray(int, int)
@@ -702,6 +703,13 @@ awapp.initArray(writeBufferAddr, maxIndex);
   let lastStepAgg = -1;
   let currentStepCount = 0;
 
+  let lastTimestampAcc = 0;
+  let lastTimestampMag = 0;
+  let lastTimestampBaro = 0;
+  let lastTimestampGPS = 0;
+
+  let lastTimestampHRM = 0;
+
   let accelSum = 0;
   let accelSamples = 0;
 
@@ -764,7 +772,7 @@ awapp.initArray(writeBufferAddr, maxIndex);
 
 function writeToFlash(){
   if(file.offset < FILESIZE){
-    saveData(writeBufferDataView.buffer);
+    saveData(writeBuffer);
   }
 
   awapp.clear();
@@ -805,7 +813,6 @@ let altB = new ArrayBuffer(8);
 let altBDataView = new DataView(altB);
 let altBAddr = E.getAddressOf(altBDataView.buffer,true);
 
-let maxIndex = 768;
 let FILESIZE = 0;
 
 
@@ -969,13 +976,18 @@ function appendEventRow(code) {
     hrConfidence = d.confidence;
     }
 
-    // ================= RAW (C logging) =================
-    if (settings.rawMode && hrmOn && !isAggregated) {
+   // ================= RAW (C logging) =================
+    if (settings.rawMode && d.confidence > 50) {
 
       let ppg = d.vcPPG !== undefined ? d.vcPPG : d.bpm;
 
-      if (ppg > 0 && d.confidence > 50) {
-        writeSensor(awapp.writeHRM, [ppg], ts.hrm);
+      if (ppg > 0) {
+
+        let now = Date.now();
+        let deltaTime = lastTimestampHRM ? (now - lastTimestampHRM) : 0;
+        lastTimestampHRM = now;
+
+        awapp.writeHRM(ppg, deltaTime);
       }
     }
   }
@@ -1037,7 +1049,7 @@ function appendEventRow(code) {
       send(`DATA,ACC,${ms},${a.x.toFixed(3)},${a.y.toFixed(3)},${a.z.toFixed(3)}`);
     }
     // ================= RAW LOGGING =================
-      if (settings.rawMode && accelOn && !isAggregated) {
+      if (settings.rawMode && accelOn) {
 
         let timestamp = Date.now();
         let deltaTime = timestamp - lastTimestampAcc;
@@ -1098,7 +1110,7 @@ function appendEventRow(code) {
       send(`DATA,MAG,${ms},${m.x.toFixed(3)},${m.y.toFixed(3)},${m.z.toFixed(3)}`);
     }
     // ================= RAW LOGGING =================
-      if (settings.rawMode && magOn && !isAggregated) {
+      if (settings.rawMode && magOn) {
 
         let timestamp = Date.now();
         let deltaTime = timestamp - lastTimestampMag;
@@ -1136,7 +1148,7 @@ function appendEventRow(code) {
       send(`DATA,pressure,${ms},${b.pressure.toFixed(2)},${b.altitude.toFixed(2)},${b.temperature.toFixed(2)}`);
     }
     // ================= RAW LOGGING =================
-      if (settings.rawMode && pressureOn && !isAggregated) {
+      if (settings.rawMode && pressureOn) {
 
         if (!isNaN(b.pressure) && !isNaN(b.temperature)) {
 
@@ -1170,14 +1182,14 @@ function appendEventRow(code) {
       send(`DATA,GPS,${ms},${g.lat.toFixed(6)},${g.lon.toFixed(6)},${g.alt}`);
     }
 
-     if (settings.rawMode && gpsOn && isAggregated === false) {
+     if (settings.rawMode && gpsOn) {
 
       // säkerställ att data är valid
       if (!isNaN(g.lat) && !isNaN(g.lon) && !isNaN(g.alt)) {
 
         let timestamp = Date.now();
-        let deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;
+        let deltaTime = timestamp - lastTimestampGPS;
+        lastTimestampGPS = timestamp;
 
         // skriv till buffer
         latBDataView.setFloat64(0, g.lat, true);
@@ -1280,13 +1292,22 @@ function startCollection() {
   let isRaw = settings.rawMode;
 
   // ================= FILE SETUP =================
-  if (isRaw) {
-    config.filename = "collectedRawData.bin";
-    config.totalLen = RAW_FILE_LEN;
-  } else {
-    config.filename = "collectedAggData.bin";
-    config.totalLen = AGG_FILE_LEN;
-  }
+  const fileConfig = {
+    raw: {
+      name: "collectedRawData.bin",
+      size: RAW_FILE_LEN
+    },
+    agg: {
+      name: "collectedAggData.bin",
+      size: AGG_FILE_LEN
+    }
+  };
+
+  const mode = isRaw ? "raw" : "agg";
+
+  config.filename = fileConfig[mode].name;
+  config.totalLen = fileConfig[mode].size;
+  FILESIZE = config.totalLen;
 
   Bangle.buzz(300);
 
@@ -1608,6 +1629,8 @@ function stopCollection() {
   } catch (e) {
     send("DEBUG: Could not load settings");
   }
+  Bangle.loadWidgets();
+  Bangle.drawWidgets();
 
   //Terminal.setConsole(true);
 })();
