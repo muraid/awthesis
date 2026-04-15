@@ -658,6 +658,17 @@ let file = {
   offset : 0, // force a new file to be generated at first
 };
 
+let maxIndex = 768;
+let FILESIZE = 0;
+let writeBuffer = new ArrayBuffer(maxIndex);
+let writeBufferDataView = new DataView(writeBuffer);
+let writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
+
+let started = false;
+let lastTimestamp = 0;
+
+let powerAccelerometer = false;
+
 // Add new data to a log file or switch log files
 function saveData(ramData) {
   var l = ramData.length;
@@ -671,20 +682,6 @@ function saveData(ramData) {
     if(file.offset+l < FILESIZE){
       storage.write(file.name,ramData,file.offset);
       file.offset += l;
-    }
-    else{
-      let leftSpace = FILESIZE - file.offset;
-      
-      let temporaryBuffer = new ArrayBuffer(leftSpace);
-      let tempBufferDataView = new DataView(temporaryBuffer);
-      
-      for (let i = 0; i < leftSpace; i++) {
-        let valueToWrite = writeBufferDataView.getInt8(i);
-        tempBufferDataView.setInt8(i,valueToWrite);
-      }
-      
-      storage.write(file.name,tempBufferDataView.buffer,file.offset);
-      file.offset += l + 100000;
     }
   }
 }
@@ -704,47 +701,31 @@ function writeToFlash(){
   }
 }
 
-let writeBuffer = new ArrayBuffer(0);
-let writeBufferDataView = new DataView(writeBuffer);
-let writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
 
-let maxIndex = 768;
-let FILESIZE = 0;
-
-let started = false;
-
-let powerAccelerometer = false;
-let powerMagnetude = false;
-
-var accelerometerSkip = 0;
 function onAccel(a){
-  if(started){
-    if(accelerometerSkip == accelerometerSkips[selectedAccelerometer]){
-      var timestamp = Math.round(Date.now());
-      var deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      var x = a.x * 8192.0;
-      var y = a.y * 8192.0;
-      var z = a.z * 8192.0;  
+  if(!started) return;
+    var timestamp = Math.round(Date.now());
+    var deltaTime = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+    var x = a.x * 8192.0;
+    var y = a.y * 8192.0;
+    var z = a.z * 8192.0;  
 
-      var writeOut = historiographer.writeAccelerometer(x,y,z,deltaTime);
-      if(writeOut == true){
-        writeToFlash();
-      }
-      accelerometerSkip = 0;
-    }    
-    else{
-      accelerometerSkip++;
+    var writeOut = historiographer.writeAccelerometer(x,y,z,deltaTime);
+    if(writeOut){
+      writeToFlash();
     }
-  }
 }
 
 
 
 function configureSensors(){    
-  if(selectedAccelerometer!= 0){
-    powerAccelerometer = true;
+  if(powerAccelerometer){
+    Bangle.selectedAccelerometer(1);
     historiographer.setAccelerometer(true);
+  }
+  else{
+    Bangle.selectedAccelerometer(0);
   }
 }
 
@@ -752,21 +733,19 @@ function writeConfiguration(){
   
   require("Storage").erase("user.bin");
   require("Storage").compact(true);
-  
-  writeBuffer = new ArrayBuffer(maxIndex);
-  writeBufferDataView = new DataView(writeBuffer);
-  writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
-  
+
+  file.offset = 0;
   historiographer.initArray(writeBufferAddr, maxIndex);
-  configureSensors();
+  configureSensors();  
   historiographer.writeIDsToArray();
+  
   var time = Math.round(Date.now());
   lastTimestamp = time;
-  var date = Date(time);
+  var date = new Date(time);
   historiographer.writeDate(date.getFullYear(), date.getMonth(), date.getDate());
   var writeOut = historiographer.writeTime(date.getHours(), date.getMinutes());
 
-  if(writeOut == true){
+  if(writeOut){
     writeToFlash();
   }
 
@@ -776,47 +755,22 @@ function writeConfiguration(){
 }
 
 Bangle.on('accel', function(accelEvent) {
-  if(started){
-    if(powerAccelerometer){
+  if(started && powerAccelerometer){
       onAccel(accelEvent);
     }
-
-    if(powerMagnetude){
-      onMagnetude(accelEvent);
-    }
-  }
-});
-
-
-let lastTimestamp = 0;
-
-var accelerometerSkips = ["Off",0,1,2,3,5,10,20,50];
-var accelerometerSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedAccelerometer = 0;
-
-
-var num = 9000;
-var profiles = require("Storage").readJSON("availableConfigs.json", true).configs;
-profiles.unshift("Custom");
+    });
 
 // First menu
 var mainmenu = {
   "" : { "title" : "Main Menu" },
   "< Back" : function() { load(); },
   "Start" : function() {
-    E.showMenu(submenuClock);
-    WIDGETS["widhistorio"].setActive();
     writeConfiguration();
-    draw();
   },
   "Settings": function(){E.showMenu(menuSettings);},
   "Exit" : function() { load(); }, // remove the menu
 };
 
-
-
-var submenuClock;
-var submenuStorageSaving;
 var submenuSensors;
 var menuSettings;
 
@@ -825,33 +779,23 @@ menuSettings = {
   "" : { "title" : "Settings" },
   "< Back" : function() { E.showMenu(mainmenu); }, 
   "Sensors" : function() { E.showMenu(submenuSensors); },
-  "Sensors to Stop" : function() { E.showMenu(stopSensors); },
-  
 };
+
 submenuSensors = {
   "" : { "title" : "Sensors" },
   "< Back" : function() { E.showMenu(menuSettings); },
-  "Skip Accel." : {
-      value: selectedAccelerometer,
-      min: 0, max: accelerometerSkipsText.length-1,
-      format: v => accelerometerSkipsText[v],
+  "Accel." : {
+      value: powerAccelerometer,
       onchange: v => {
-          selectedAccelerometer = v;
+          powerAccelerometer = v;
+          Bangle.setAccelPower(v ? 1 : 0);
     }
       },
-};
-
-stopSensors = {
-  "" : { "title" : "Shutoff" },
-  "< Back" : function() { E.showMenu(submenuStorageSaving); },
-  "Accelerometer" : {
-    value : powerTurnoffStorage[2],
-    onchange : v => { powerTurnoffStorage[2]=v; }
-  },
 };
 }
 
 reloadMenus();
+Bangle.setAccelPower(0);
 Bangle.loadWidgets();
 Bangle.drawWidgets();
-var m = E.showMenu(mainmenu);
+E.showMenu(mainmenu);
