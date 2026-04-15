@@ -753,12 +753,34 @@ Bangle.on('accel', function(accelEvent) {
     }
     });
 
+function stopRecording(){
+  if(!started) return;
+
+  // skriv sista bufferten till flash
+  writeToFlash();
+
+  // stoppa logging
+  started = false;
+
+  // (valfritt) stäng av accel-logik
+  powerAccelerometer = false;
+
+  // feedback
+  Bangle.buzz();
+  setTimeout(()=>Bangle.buzz(), 200);
+
+  print("Recording stopped");
+}
+
 // First menu
 var mainmenu = {
   "" : { "title" : "Main Menu" },
   "< Back" : function() { load(); },
   "Start" : function() {
     writeConfiguration();
+  },
+  "Stop" : function() {
+    stopRecording();
   },
   "Settings": function(){E.showMenu(menuSettings);},
   "Exit" : function() { load(); }, // remove the menu
