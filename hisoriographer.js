@@ -1,91 +1,9 @@
 // Load widgets
 Bangle.loadWidgets();
 
-/***function hrmTurnoff(soft){
-  if(soft)
-  {
-    Bangle.setHRMPower(false, appID);
-    hrmActive = false;
-  }
-  else
-  {    
-    Bangle.setHRMPower(false);
-  }
-}
-
-function magnetudeTurnoff(soft)
-{
-  powerMagnetude = false;
-}
-
-function compassTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setCompassPower(false, appID);
-    compassActive = false;
-  }
-  else
-  {    
-    Bangle.setCompassPower(false);
-  }
-}
-
-function gpsTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setGPSPower(false, appID);
-    gpsActive = false;
-  }
-  else
-  {    
-    Bangle.setGPSPower(false);
-  }
-}
-
-function barometerTurnoff(soft)
-{
-  if(soft)
-  {
-    Bangle.setBarometerPower(false, appID);
-    barometerActive = false;
-  }
-  else
-  {    
-    Bangle.setBarometerPower(false);
-  }
-}
-**/
-
-function accelTurnoff(soft)
-{
-  powerAccelerometer = false;
-}
-
-let powerTurnoffBattery = [false,false,false,false,false,false];
-let powerTurnoffStorage = [false,false,false,false,false,false];
+let powerTurnoffStorage = [false];
 //let powersavingGPS = false;
-let gpsTurnOnIntervallFunction;
 
-let powerTurnoffFunctions = [hrmTurnoff,barometerTurnoff,accelTurnoff,magnetudeTurnoff,compassTurnoff,gpsTurnoff];
-
-let batteryNotifiyAction = false;
-//let storageNotifiyAction = false;
-//let batteryNotifiyAction = false;
-let storageNotifiyAction = false;
-let batteryNotifiyPercent = 0;
-//let storageNotifiy = 0;
-
-let batterySaveAction = false;
-let storageSaveAction = false;
-let batterySavePercent = 0;
-let storageSave = 0;
-
-let showingWarning = false;
-let noMoreStorage = false;
-
-let appID = "historio";
 
 let historiographer= E.compiledC(`
   // void initArray(int, int)
@@ -757,8 +675,8 @@ function saveData(ramData) {
     else{
       let leftSpace = FILESIZE - file.offset;
       
-      let tempBuffer = new ArrayBuffer(leftSpace);
-      let tempBufferDataView = new DataView(tempBuffer);
+      let temporaryBuffer = new ArrayBuffer(leftSpace);
+      let tempBufferDataView = new DataView(temporaryBuffer);
       
       for (let i = 0; i < leftSpace; i++) {
         let valueToWrite = writeBufferDataView.getInt8(i);
@@ -775,32 +693,6 @@ function writeToFlash(){
   if(file.offset < FILESIZE){
     saveData(writeBufferDataView.buffer);
   }
-  /** 
-  if(file.offset >=  storageNotifiy && storageNotifiyAction)
-  {
-  if(showingWarning == false)
-  {
-    clearTimeout(drawTimeout);
-    warnings();
-    Bangle.buzz();
-    storageNotifiyAction = false;
-  }
-  }
-  
-  if(file.offset >=  storageSave && storageSaveAction)
-  {
-    if(showingWarning == false)
-    {
-      clearTimeout(drawTimeout);
-      warnings();
-      Bangle.buzz();
-      storageSaveAction = false;
-      for (let i = 0; i < powerTurnoffStorage.length; i++) {
-        if(powerTurnoffStorage[i])
-          powerTurnoffFunctions[i](true);
-      }
-    }**/
-  }
 
   historiographer.clear();
   if(file.offset >= FILESIZE){
@@ -816,46 +708,6 @@ let writeBuffer = new ArrayBuffer(0);
 let writeBufferDataView = new DataView(writeBuffer);
 let writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
 
-let tempB = new ArrayBuffer(8);
-let tempBDataView = new DataView(tempB);
-let tempBAddr = E.getAddressOf(tempBDataView.buffer,true);
-
-let pressB = new ArrayBuffer(8);
-let pressBDataView = new DataView(pressB);
-let pressBAddr = E.getAddressOf(pressBDataView.buffer,true);
-
-let pressAltB = new ArrayBuffer(8);
-let pressAltBDataView = new DataView(pressAltB);
-let pressAltBAddr = E.getAddressOf(pressAltBDataView.buffer,true);
-
-let compassB = new ArrayBuffer(8);
-let compassBDataView = new DataView(compassB);
-let compassBAddr = E.getAddressOf(compassBDataView.buffer,true);
-
-let latB = new ArrayBuffer(8);
-let latBDataView = new DataView(latB);
-let latBAddr = E.getAddressOf(latBDataView.buffer,true);
-
-let longB = new ArrayBuffer(8);
-let longBDataView = new DataView(longB);
-let longBAddr = E.getAddressOf(longBDataView.buffer,true);
-
-let altB = new ArrayBuffer(8);
-let altBDataView = new DataView(altB);
-let altBAddr = E.getAddressOf(altBDataView.buffer,true);
-
-var supervisorname = "";
-var subjectname = "";
-var fastUpdateIntervall = false;
-
-let recordAltitude = false;
-let jsMath = false;
-let outputXML = false;
-
-let filenameSupervisor = false;
-let filenameSubject = false;
-let filenameDate = false;
-
 let maxIndex = 768;
 let FILESIZE = 0;
 
@@ -863,157 +715,6 @@ let started = false;
 
 let powerAccelerometer = false;
 let powerMagnetude = false;
-let gpsActive = false;
-let barometerActive = false;
-let hrmActive = false;
-let compassActive = false;
-
-function writeNames(){
-  let lengthName = supervisorname.length;
-  arrayIndex = historiographer.writeByte(lengthName);
-
-  let charToWrite = 0;
-  for(let i=0; i<lengthName;i ++) {
-    charToWrite = supervisorname[i].charCodeAt(0);
-    arrayIndex = historiographer.writeByte(charToWrite);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-  }
-
-  lengthName = subjectname.length;
-  arrayIndex = historiographer.writeByte(lengthName);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-
-  for(let i=0; i<lengthName;i ++) {
-    charToWrite = subjectname[i].charCodeAt(0);
-    arrayIndex = historiographer.writeByte(charToWrite);
-  if(historiographer.hitLimit() == true){
-      writeToFlash();
-    }
-  }
-}
-
-/*var gpsSkips = 0;
-function onGPS(gps){
-  if(started && gpsActive){
-    if(powersavingGPS){
-      if(!(isNaN(gps.lat) || isNaN(gps.lon) || isNaN(gps.alt))){
-        //is valid
-        var timestamp = Math.round(Date.now());
-        var deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;  
-
-        latBDataView.setFloat64(0,gps.lat,true);
-        longBDataView.setFloat64(0,gps.lon,true);
-        altBDataView.setFloat64(0,gps.alt,true);
-
-        var writeOut = historiographer.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
-        if(writeOut == true){
-          writeToFlash();
-        }
-        // turn off
-        Bangle.setGPSPower(0);
-      }
-    }
-    else{
-      if(gpsSkips == GPSspeed[selectedGPSspeed]){
-        var timestamp = Math.round(Date.now());
-        var deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;  
-
-        latBDataView.setFloat64(0,gps.lat,true);
-        longBDataView.setFloat64(0,gps.lon,true);
-        altBDataView.setFloat64(0,gps.alt,true);
-
-        var writeOut = historiographer.writeGPS(latBAddr,longBAddr,altBAddr,deltaTime);
-        if(writeOut == true){
-          writeToFlash();
-        }
-        gpsSkips = 0;
-      }
-      else{
-        gpsSkips++;
-      }
-    }
-  }
-}*/
-
-function gpsTurnON(){
-  Bangle.setGPSPower(1);
-}
-
-var barometerSkip = 0;
-
-function onBarometer(baro){
-  if(started && barometerActive){
-    if(barometerSkip == barometerSkips[selectedBarometer]){
-      var timestamp = Math.round(Date.now());
-      var deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;  
-
-      tempBDataView.setFloat64(0,baro.temperature,true);
-      pressBDataView.setFloat64(0,baro.pressure,true);
-      if(recordAltitude){
-        pressAltBDataView.setFloat64(0,baro.altitude,true);
-      }
-      var writeOut = historiographer.writeBarometer(tempBAddr,pressBAddr,pressAltBAddr,deltaTime);
-      if(writeOut == true){
-        writeToFlash();
-      }
-      barometerSkip = 0;
-    }
-    else{
-      barometerSkip++;
-    }    
-  }
-}
-
-function onHRM(h){
-  if(started && hrmActive){
-    var timestamp = Math.round(Date.now());
-    var deltaTime = timestamp - lastTimestamp;
-    lastTimestamp = timestamp;
-
-    var ppg = h.vcPPG;
-    var writeOut = historiographer.writeHRM(ppg,deltaTime);
-    if(writeOut == true){
-      writeToFlash();
-    }
-  }
-}
-
-var compassSkip = 0;
-function onCompass(c){
-  if(started && compassActive){
-    if(compassSkip == compassSkips[selectedCompass]){
-      var timestamp = Math.round(Date.now());
-      var deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-
-      var x = c.x;
-      var y = c.y;
-      var z = c.z;
-
-      var heading = c.heading;
-      historiographer.compassData(x,y,z);
-
-      compassBDataView.setFloat64(0,heading,true);
-
-      var writeOut = historiographer.writeCompass(compassBAddr,deltaTime);
-      if(writeOut == true){
-        writeToFlash();
-      }
-      compassSkip = 0;
-    }
-    else
-    {
-      compassSkip++;
-    }
-  }
-}
 
 var accelerometerSkip = 0;
 function onAccel(a){
@@ -1038,67 +739,9 @@ function onAccel(a){
   }
 }
 
-var magnetude = 0;
-var magnetudeSkip = 0;
-function onMagnetude(a){
-  if(started){
-    if(magnetudeSkip == magnetudeSkips[selectedMagnetude]){
-      var timestamp = Math.round(Date.now());
-      var deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      var mag = a.mag * 8192.0;
 
-      var writeOut = historiographer.writeMagnetude(mag,deltaTime);
-      if(writeOut == true){
-        writeToFlash();
-      }
-      magnetudeSkip = 0;
-    }
-    else{
-      magnetudeSkip++;
-    }
-  }
-}
 
-function configureSensors(){
-  if(fastUpdateIntervall == true){
-    Bangle.setPollInterval(10);
-  }
-  if(selectedHRM != 0){
-    let options = Bangle.getOptions();
-    options.hrmPollInterval = hrmSpeeds[selectedHRM];
-    Bangle.setOptions(options);
-    Bangle.setHRMPower(true, appID);
-    historiographer.setHRM(true);
-    hrmActive = true;
-  }
-    
-  if(selectedGPSspeed != 0){
-    Bangle.setGPSPower(1);
-    gpsActive = true;
-    historiographer.setGPS(true);
-    //if(powersavingGPS==true){
-       //gpsTurnOnIntervallFunction=setInterval(gpsTurnON,GPSspeed[selectedGPSspeed]*1000);
-    //}
-  }
-    
-  if(selectedBarometer != 0){
-    Bangle.setBarometerPower(1, appID);
-    barometerActive = true;
-    historiographer.setBarometer(true);
-  }
-    
-  if(selectedCompass!= 0){
-    Bangle.setCompassPower(1, appID);
-    compassActive = true;
-    historiographer.setCompass(true);
-  }
-    
-  if(selectedMagnetude!= 0){
-    powerMagnetude = true;
-    historiographer.setMagnetude(true);
-  }
-    
+function configureSensors(){    
   if(selectedAccelerometer!= 0){
     powerAccelerometer = true;
     historiographer.setAccelerometer(true);
@@ -1115,11 +758,8 @@ function writeConfiguration(){
   writeBufferAddr = E.getAddressOf(writeBufferDataView.buffer,true);
   
   historiographer.initArray(writeBufferAddr, maxIndex);
-  writeNames();
   configureSensors();
   historiographer.writeIDsToArray();
-  historiographer.writeOptions1(recordAltitude,jsMath, outputXML);
-  historiographer.writeOptions2(filenameSupervisor,filenameSubject, filenameDate);
   var time = Math.round(Date.now());
   lastTimestamp = time;
   var date = Date(time);
@@ -1135,8 +775,6 @@ function writeConfiguration(){
   started = true;
 }
 
-Bangle.on('GPS',onGPS);
-Bangle.on('pressure', onBarometer);
 Bangle.on('accel', function(accelEvent) {
   if(started){
     if(powerAccelerometer){
@@ -1148,98 +786,19 @@ Bangle.on('accel', function(accelEvent) {
     }
   }
 });
-Bangle.on('mag',onCompass);
-Bangle.on('HRM-raw', onHRM);
+
 
 let lastTimestamp = 0;
-
-var hrmSpeeds = ["Off",10,20,40,80,160,200];
-var hrmSpeedsText = ["Off","10ms","20ms","40ms","80ms","160ms","200ms"];
-var selectedHRM = 0;
-
-var barometerSkips = ["Off",0,1,2,3,5,10,20,50];
-var barometerSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedBarometer = 0;
-
-var magnetudeSkips = ["Off",0,1,2,3,5,10,20,50];
-var magnetudeSkipsText = ["Off",0,1,2,3,5,10,20,50];
-var selectedMagnetude = 0;
 
 var accelerometerSkips = ["Off",0,1,2,3,5,10,20,50];
 var accelerometerSkipsText = ["Off",0,1,2,3,5,10,20,50];
 var selectedAccelerometer = 0;
 
-var compassSkips = ["Off",0,1,2,3,4,5,10,20,40];
-var compassSkipsText =["Off",0,1,2,3,4,5,10,20,40];
-var selectedCompass = 0;
-
-var GPSspeed = ["Off",0,29,59,899,1799,3599];
-var GPSspeedText = ["Off","1s","30s","1min","15min", "30min", "1h" ];
-var selectedGPSspeed = 0;
 
 var num = 9000;
 var profiles = require("Storage").readJSON("availableConfigs.json", true).configs;
 profiles.unshift("Custom");
 
-var currentProfile = profiles[0];
-var passphrase = "test";
-let startedVisual = false;
-
-function loadProfile(id){
-  
-  if(id != 0){
-    currentProfile = profiles[id];
-
-    var setting = require("Storage").readJSON(currentProfile+".json", true);
-    supervisorname = setting.supervisorname;
-
-    FILESIZE = setting.fileSize *1024;
-    maxIndex = setting.ramSize;
-
-    hrmSpeedsText = setting.hrmText;
-    selectedHRM = setting.hrmSpeed;
-
-    barometerSkips = setting.barometerSkips;
-    barometerSkipsText = setting.barometerSkipsText;
-    selectedBarometer = setting.barometer;
-
-    magnetudeSkips = setting.magnetudeSkips;
-    magnetudeSkipsText = setting.magnetudeSkipsText;
-    selectedMagnetude = setting.magnetude;
-
-    accelerometerSkips = setting.accelerometerSkips;
-    accelerometerSkipsText = setting.accelerometerSkipsText;
-    selectedAccelerometer = setting.accelerometer;
-
-    compassSkips = setting.compassSkips;
-    compassSkipsText = setting.compassSkipsText;
-    selectedCompass = setting.compass;
-
-    GPSspeed = setting.gPSspeedSeconds;
-    GPSspeedText = setting.gPSspeedText;
-    selectedGPSspeed = setting.gpsSpeed;
-    powersavingGPS = setting.gpsEnergysaving;
-
-    batteryNotifiyPercent = setting.batteryNotifiy;
-    if(batteryNotifiyPercent){batteryNotifiyAction = true;}
-    //let storageNotifiy = setting.storageNotifiy * 1024;
-    //if(storageNotifiy){storageNotifiyAction = true;}
-    //if(batteryNotifiyPercent){batteryNotifiyAction = true;}
-    storageNotifiy = setting.storageNotifiy * 1024;
-    if(storageNotifiy){storageNotifiyAction = true;}
-    batterySavePercent = setting.energySaving;
-    storageSave = setting.storageSaving * 1024;
-    powerTurnoffBattery = setting.turnOffEnergy;
-    if(powerTurnoffBattery){batterySaveAction = true;}
-    powerTurnoffStorage = setting.turnOffStorage;
-    if(powerTurnoffStorage){storageSaveAction = true;}
-    passphrase = setting.unlockPhrase;
-    reloadMenus();
-  }
-  else{
-    currentProfile = profiles[0];
-  }
-}
 // First menu
 var mainmenu = {
   "" : { "title" : "Main Menu" },
@@ -1250,107 +809,28 @@ var mainmenu = {
     writeConfiguration();
     draw();
   },
-  "Supervisor" : function() {
-    E.showMenu();
-    require("textinput").input({text:supervisorname}).then(result => {
-      console.log("The user entered: ", result);
-      supervisorname = result;
-      E.showMenu(mainmenu);
-    });
-  },
-  "Subject" : function() {
-    require("textinput").input({text:subjectname}).then(result => {
-      console.log("The user entered: ", result);
-      subjectname = result;
-      E.showMenu(mainmenu);
-    });
-  },
-  "Profile: " : {
-      value: 0,
-      min: 0, max: profiles.length-1,
-      format: v => profiles[v],
-      onchange: v => {
-        loadProfile(v);
-      }
-  },
   "Settings": function(){E.showMenu(menuSettings);},
-  "Output": function(){E.showMenu(submenuOutputSettings);},
-  "UnlockPhrase": function(){
-     require("textinput").input({text:passphrase}).then(result => {
-      console.log("The user entered: ", result);
-       passphrase = result;
-       E.showMenu(mainmenu);
-    });
-  },
   "Exit" : function() { load(); }, // remove the menu
 };
 
-var submenuStorageSavingDevices;
-var submenuBatterySavingDevices;
-var unlockScreen;
+
+
 var submenuClock;
-var submenuBatterySaving;
 var submenuStorageSaving;
-var submenuNotify;
 var submenuSensors;
 var menuSettings;
-var submenuOutputSettings;
 
 function reloadMenus(){
 menuSettings = {
   "" : { "title" : "Settings" },
-  "< Back" : function() { E.showMenu(mainmenu); },
-  "Storage (in KB)" : {
-    value : FILESIZE/1024,
-    min:0,max:6144,step:128,
-    onchange : v => {
-      FILESIZE = v*1024;
-    }
-      }, 
-  "Ramsize" : {
-    value : maxIndex,
-    min:0,max:6144,step:256,
-    onchange : v => {
-      maxIndex = v;
-    }
-      }, 
+  "< Back" : function() { E.showMenu(mainmenu); }, 
   "Sensors" : function() { E.showMenu(submenuSensors); },
-  "Notify":function() { E.showMenu(submenuNotify); },
-  "Energy savings": function() { E.showMenu(submenuBatterySaving); },
-  "Storage savings": function() { E.showMenu(submenuStorageSaving); },
+  "Sensors to Stop" : function() { E.showMenu(stopSensors); },
   
 };
 submenuSensors = {
   "" : { "title" : "Sensors" },
   "< Back" : function() { E.showMenu(menuSettings); },
-  "HRM" : {
-      value: selectedHRM,
-      min: 0, max: hrmSpeedsText.length-1,
-      format: v => hrmSpeedsText[v],
-      onchange: v => {
-        selectedHRM = v;
-      }
-      }, 
-  "GPS" : {
-      value: selectedGPSspeed,
-      min: 0, max: GPSspeedText.length-1,
-      format: v => GPSspeedText[v],
-      onchange: v => {
-          selectedGPSspeed = v;
-      }
-  },
- /* "Energy Save GPS" : {
-    value : powersavingGPS,
-    onchange : v => { powersavingGPS=v; }
-  },*/
-  "Skip Baro." : {
-      value: selectedBarometer,
-      min: 0, max: barometerSkipsText.length-1,
-      format: v => barometerSkipsText[v],
-      onchange: v => {
-          selectedBarometer = v;
-    }
-      },
   "Skip Accel." : {
       value: selectedAccelerometer,
       min: 0, max: accelerometerSkipsText.length-1,
@@ -1359,252 +839,17 @@ submenuSensors = {
           selectedAccelerometer = v;
     }
       },
-  "Skip Mag." : {
-      value: selectedMagnetude,
-      min: 0, max: magnetudeSkipsText.length-1,
-      format: v => magnetudeSkipsText[v],
-      onchange: v => {
-          selectedMagnetude = v;
-    }
-      },
-  "Skip Compass" : {
-      value: selectedCompass,
-      min: 0, max: compassSkipsText.length-1,
-      format: v => compassSkipsText[v],
-      onchange: v => {
-          selectedCompass = v;
-      }
-  }
-};
-submenuNotify = {
-  "" : { "title" : "Notify" },
-  "< Back" : function() { E.showMenu(menuSettings); },
-  /***"Storage (in KB)" : {
-    value : storageNotifiy,
-    min:0,max:6144,step:128,
-    onchange : v => {
-      storageNotifiyAction = true;
-      storageNotifiy = v * 1024;
-    }
-      }, */
-  "Battery" : {
-      }, 
- /*"Battery" : {
-    value : batteryNotifiyPercent,
-    min:0,max:100,step:5,
-    onchange : v => {
-      batteryNotifiyAction = true;
-      batteryNotifiyPercent = v;
-    }
-      }*/
-};
-submenuStorageSaving = {
-  "" : { "title" : "Saving" },
-  "< Back" : function() { E.showMenu(menuSettings); },
-  "Storage (in KB)" : {
-    value : storageSave,
-    min:0,max:6144,step:128,
-    onchange : v => {
-      batterySaveAction = true;
-      storageSave = v * 1024;
-    }
-      }, 
-  "Sensors to Stop" : function() { E.showMenu(submenuStorageSavingDevices); },
-};
-submenuBatterySaving = {
-  "" : { "title" : "Saving" },
-  "< Back" : function() { E.showMenu(menuSettings); },
-  "Battery" : {
-    value : batterySavePercent,
-    min:0,max:100,step:5,
-    onchange : v => {
-      batterySaveAction = true;
-      batterySavePercent = v;
-    }
-      },
-  "Sensors to Stop" : function() { E.showMenu(submenuBatterySavingDevices); },
-  "10 ms Updates" : {
-    value : fastUpdateIntervall,
-    onchange : v => { fastUpdateIntervall = v;}
-  }
 };
 
-submenuClock = {
-  "< Back" : function() { 
-      clearTimeout(drawTimeout);
-      E.showMenu(unlockScreen);
-      clearTimeout(drawTimeout);
-                        }
-};
-unlockScreen = {
-  "Unlock & Stop" : function() { 
-    E.showMenu();
-    require("textinput").input({text:""}).then(result => {
-      console.log("The user entered: ", result);
-      if(result == passphrase){
-        started = false;
-        
-        var timestamp = Math.round(Date.now());
-        var deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;
-        
-        var overflow = historiographer.writeEndID(deltaTime)
-        writeToFlash();
-        if(overflow == false){
-          writeToFlash();
-        }
-        
-        WIDGETS["widhistorio"].reset();
-        
-        E.showMenu(mainmenu);
-      }
-      else{
-        E.showMenu(unlockScreen);
-      }
-    });
-                        },
-  "Clock" : function() {
-    E.showMenu(submenuClock);
-    draw();
-                        },
-};
-
-
-submenuBatterySavingDevices = {
-  "" : { "title" : "Shutoff" },
-  "< Back" : function() { E.showMenu(mainmenu); },
-  "HRM" : {
-    value : powerTurnoffBattery[0],
-    onchange : v => { powerTurnoffBattery[0]=v; }
-  },
-  "Barometer" : {
-    value : powerTurnoffBattery[1],
-    onchange : v => { powerTurnoffBattery[1]=v; }
-  },
-  "Accelerometer" : {
-    value : powerTurnoffBattery[2],
-    onchange : v => { powerTurnoffBattery[2]=v; }
-  },
-  "Magnetude" : {
-    value : powerTurnoffBattery[3],
-    onchange : v => { powerTurnoffBattery[3]=v; }
-  },
-  "Compass" : {
-    value : powerTurnoffBattery[4],
-    onchange : v => { powerTurnoffBattery[4]=v; }
-  },
-  "GPS" : {
-    value : powerTurnoffBattery[5],
-    onchange : v => { powerTurnoffBattery[5]=v; }
-  },
-};
-submenuOutputSettings = {
-  "" : { "title" : "Output" },
-  "< Back" : function() { E.showMenu(mainmenu); },
-  "RecordHeight" : {
-    value : recordAltitude,
-    onchange : v => {
-      recordAltitude = v;
-    }
-      },
-  "JSMath" : {
-    value : jsMath,
-    min:0,max:100,step:5,
-    onchange : v => {
-      jsMath = v;
-    }
-      },
-  "XML" : {
-    value : outputXML,
-    onchange : v => {
-      outputXML = v;
-    }
-      },
-  "File Supervisor" : {
-    value : filenameSupervisor,
-    onchange : v => {
-      filenameSupervisor = v;
-    }
-      },
-  "File Subject" : {
-    value : filenameSubject,
-    onchange : v => {
-      filenameSubject = v;
-    }
-      },
-  "File Date" : {
-    value : filenameDate,
-    onchange : v => {
-      filenameDate = v;
-    }
-      },
-};
-submenuStorageSavingDevices = {
+stopSensors = {
   "" : { "title" : "Shutoff" },
   "< Back" : function() { E.showMenu(submenuStorageSaving); },
-  "HRM" : {
-    value : powerTurnoffStorage[0],
-    onchange : v => { powerTurnoffStorage[0]=v; }
-  },
-  "Barometer" : {
-    value : powerTurnoffStorage[1],
-    onchange : v => { powerTurnoffStorage[1]=v; }
-  },
   "Accelerometer" : {
     value : powerTurnoffStorage[2],
     onchange : v => { powerTurnoffStorage[2]=v; }
   },
-  "Magnetude" : {
-    value : powerTurnoffStorage[3],
-    onchange : v => { powerTurnoffStorage[3]=v; }
-  },
-  "Compass" : {
-    value : powerTurnoffStorage[4],
-    onchange : v => { powerTurnoffStorage[4]=v; }
-  },
-  "GPS" : {
-    value : powerTurnoffStorage[5],
-    onchange : v => { powerTurnoffStorage[5]=v; }
-  },
 };
 }
-
-Bangle.on('touch', function(button, xy) {
-  if(showingWarning){
-    if(xy.x > 30 && xy.x < 140)
-    {
-      if(xy.y > 120)
-      {
-        E.showMenu(submenuClock);
-        draw();
-      }
-    }
-  }
-  if(noMoreStorage){
-    if(xy.x > 30 && xy.x < 140)
-    {
-      if(xy.y > 120)
-      {
-        load();
-      }
-    }
-  }
-});
-
-var fullStorage = function(){
-  g.clear(true);
-
-  g.setFont("Vector",15);
-  g.drawString("Please return to", 5,30,true);
-  g.drawString("Supervisor", 5,50,true);
-  g.drawString("Storage is full", 5,80,true);
-
-  g.drawRect(40,130,130,170);
-  g.setFont("Vector",20);
-  g.drawString("OK",70,140);
-
-  noMoreStorage = true;
-};
 
 reloadMenus();
 Bangle.loadWidgets();
