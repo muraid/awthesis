@@ -684,17 +684,16 @@ function appendEventRow(code) {
   function showMainMenu() {
     E.showMenu({
       "": { title: "AW app" },
-
-      "Start streaming": () => {
+      
+      "Start web streaming": () => {
         Bluetooth.setConsole(false);   // gör BLE till datakanal
         Terminal.setConsole(true);     // flytta REPL till skärmen
-        E.showAlert("Ready for web app").then(() => {
+        E.showAlert("Start web app").then(() => {
             showMainMenu();
        });
   },
 
       "Local logging": () => showLoggingMenu(),
-
       "Timed test": () => timedTest(),
       "EMA settings": () => showEMAMenu()
     });
