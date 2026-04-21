@@ -686,8 +686,12 @@ function appendEventRow(code) {
       "": { title: "AW app" },
 
       "Start streaming": () => {
-        E.showMessage("Streaming\nControlled on the webb");
-      },
+        Bluetooth.setConsole(false);   // gör BLE till datakanal
+        Terminal.setConsole(true);     // flytta REPL till skärmen
+        E.showAlert("Ready for web app").then(() => {
+            showMainMenu();
+       });
+  },
 
       "Local logging": () => showLoggingMenu(),
 
