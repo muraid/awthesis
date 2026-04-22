@@ -491,6 +491,9 @@ function appendEventRow(code) {
     }
 
     Bangle.buzz(300);
+    E.showAlert("Started collection").then(() => {
+      showMainMenu();
+    });
 
     storage.erase(config.filename);
     storage.write(config.filename, new Uint8Array(config.totalLen), 0, config.totalLen);
@@ -584,6 +587,9 @@ function appendEventRow(code) {
   isAggregated = false;
 
   Bangle.buzz(200);
+  E.showAlert("Stopped collection").then(() => {
+      showMainMenu();
+    });
 }
 
 
@@ -832,7 +838,6 @@ function appendEventRow(code) {
         }
       },
 
-      "Test Alert": () => sendEMA(),
       "< Back": () => showMainMenu()
     });
   }
