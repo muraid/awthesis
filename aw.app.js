@@ -494,7 +494,7 @@ function appendEventRow(code) {
     }
 
     Bangle.buzz(300);
-    E.showAlert("Started collection").then(() => {
+    E.showAlert("Started collection").then(() => { //this function can be removed if the alert is not wanted.
       showMainMenu();
     });
 
@@ -590,7 +590,7 @@ function appendEventRow(code) {
   isAggregated = false;
 
   Bangle.buzz(200);
-  E.showAlert("Stopped collection").then(() => {
+  E.showAlert("Stopped collection").then(() => { //this function can be removed if the alert is not wanted.
       showMainMenu();
     });
 }
