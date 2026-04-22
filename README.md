@@ -6,3 +6,5 @@ In aw.app.js the full code to the application is found.
 
 
 To convert the collected data into CSV format, the code from the file 'csvconverted.py' can be used. 
+
+To collect real-time data using the “Web streaming” feature in the bangleJS app, use the following link: https://wwilmajonsson.github.io/awthesis_webapp/ 
