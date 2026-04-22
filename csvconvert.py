@@ -78,3 +78,51 @@ if __name__ == "__main__":
     /// CODE FOR CONVERTING AGGREGATED DATA
 ///----------------------------------------------------
 
+import struct
+import pandas as pd
+import os
+
+AGG_ROW_SIZE = 9
+STRUCT_FORMAT = "<IBBBBb"
+
+def parse_agg_file(filename):
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"The file '{filename}' not found.")
+
+    rows = []
+
+    with open(filename, "rb") as f:
+        data = f.read()
+
+    num_rows = len(data) // AGG_ROW_SIZE
+
+    offset = 0
+    for _ in range(num_rows):
+        chunk = data[offset:offset + AGG_ROW_SIZE]
+        offset += AGG_ROW_SIZE
+
+        timestamp, steps, accelLevel, hr, hrConf, temp = struct.unpack(STRUCT_FORMAT, chunk)
+
+        if timestamp == 0xFFFFFFFF:
+            break
+
+        rows.append({
+            "timestamp": timestamp,
+            "steps": steps,
+            "accel_level": accelLevel,
+            "hr": hr,
+            "hr_conf": hrConf,
+            "temp": temp
+        })
+
+    return pd.DataFrame(rows)
+
+
+if __name__ == "__main__":
+    input_file = "collectedAggData.bin"
+    output_file = "agg_converted.csv"
+
+    df = parse_agg_file(input_file)
+    df.to_csv(output_file, index=False)
+
+    print(f"✔ Converting finished! File saved as {output_file}")
