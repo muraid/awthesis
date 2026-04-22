@@ -404,9 +404,12 @@ function appendEventRow(code) {
 
   //function for 6 minutes walking test
  function startSixMWT() {
+  settings.rawMode = true; // force raw mode for 6MWT, since we only want raw data from this test 
+  storage.writeJSON("awapp.settings.json", settings);
+
   sixMWTSeconds = 360;
 
-  // Start aggregated logging
+ //Start logging raw data and it uses all raw sensors for logging 
   startCollection();
 
   // Event start
@@ -780,7 +783,7 @@ function appendEventRow(code) {
       value: settings.ramSize,
       min: 1,
       max: 6144,
-      step: 256,
+      step: 10, //this will allow the user to increse the RAM size in steps of 10 when configuring RAM size. 
       format: v => v + " rows",
       onchange: v => {
         settings.ramSize = v;
@@ -798,8 +801,22 @@ function appendEventRow(code) {
 
   function timedTest(){
     E.showMenu({
-      "Choose sensors": () => showSensorList(),
+      "": { title: "Timed Test" },
       "Set Interval": () => intervalMenu(),
+      
+      //set RAM size for timed test (default 50 rows, max 6144 rows)
+      "Ramsize": {
+      value: settings.ramSize,
+      min: 1,
+      max: 6144,
+      step: 1,   // samma funktionalitet som du vill ha
+      format: v => v + " rows",
+      onchange: v => {
+        settings.ramSize = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
+    },
+
       "Start 6MWT" : () => startSixMWT(),
       "< Back": () => showMainMenu()
     });
