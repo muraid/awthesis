@@ -781,9 +781,9 @@ function appendEventRow(code) {
 
     "Ramsize": {
       value: settings.ramSize,
-      min: 1,
+      min: 0,
       max: 6144,
-      step: 10, //this will allow the user to increse the RAM size in steps of 10 when configuring RAM size. 
+      step: 25, //this will allow the user to increse the RAM size in steps of 25 when configuring RAM size. 
       format: v => v + " rows",
       onchange: v => {
         settings.ramSize = v;
@@ -802,14 +802,12 @@ function appendEventRow(code) {
   function timedTest(){
     E.showMenu({
       "": { title: "Timed Test" },
-      "Set Interval": () => intervalMenu(),
-      
       //set RAM size for timed test (default 50 rows, max 6144 rows)
       "Ramsize": {
       value: settings.ramSize,
-      min: 1,
+      min: 0,
       max: 6144,
-      step: 1,   // samma funktionalitet som du vill ha
+      step: 25,   // samma funktionalitet som du vill ha
       format: v => v + " rows",
       onchange: v => {
         settings.ramSize = v;
