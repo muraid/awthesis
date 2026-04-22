@@ -685,13 +685,20 @@ function appendEventRow(code) {
     E.showMenu({
       "": { title: "AW app" },
       
-      "Start web streaming": () => {
+      "Web streaming": () => {
         Bluetooth.setConsole(false);   // gör BLE till datakanal
         Terminal.setConsole(true);     // flytta REPL till skärmen
         E.showAlert("Start web app").then(() => {
             showMainMenu();
        });
-  },
+      },
+      "App streaming": () => {
+        Bluetooth.setConsole(false);   // gör BLE till datakanal
+        Terminal.setConsole(true);     // flytta REPL till skärmen
+        E.showAlert("Start app streaming").then(() => {
+            showMainMenu();
+       });
+      },
 
       "Local logging": () => showLoggingMenu(),
       "Timed test": () => timedTest(),
