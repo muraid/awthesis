@@ -807,7 +807,6 @@ function startTimedTest() {
       "Stop": () => stopCollection(),
       "< Back": () => showMainMenu()
     });
-    E.showMenu(menu);
   }
 
   function timedTest(){
@@ -828,8 +827,8 @@ function startTimedTest() {
       "Start 6MWT" : () => startSixMWT(),
       "< Back": () => showMainMenu()
     });
-    E.showMenu(menu);
-  }
+
+    }
 
   function selectMode() {
     E.showMenu({
@@ -890,7 +889,6 @@ function startTimedTest() {
 
       "< Back": () => showMainMenu()
     });
-    E.showMenu(menu);
   }
 
   showMainMenu();
