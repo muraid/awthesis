@@ -440,7 +440,7 @@ function appendEventRow(code) {
   }, 1000);
   }
 
-  //function for timed test (default 6 minutes, configurable in menu)
+  //function for timed test (default 6 minutes, configurable in menu), for raw data 
 function startTimedTest() {
   settings.rawMode = true;
   storage.writeJSON("awapp.settings.json", settings);
@@ -471,6 +471,36 @@ function startTimedTest() {
   }, 1000);
 }
 
+// function for aggregated timed test
+function startAggTimedTest() {
+  settings.rawMode = false; // force aggregated mode
+  storage.writeJSON("awapp.settings.json", settings);
+
+  let durationSec = settings.timedTestMinutes * 60;
+
+  startCollection(); // start aggregated logging
+
+  let ts = Math.round(Date.now() / 1000);
+  send(`EVENT,AGG_TIMED_START,${ts}`);
+  appendEventRow(20); // new event code for aggregated timed test start
+
+  Bangle.buzz();
+
+  let remaining = durationSec;
+  let timer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timer);
+
+      let ts2 = Math.round(Date.now() / 1000);
+      send(`EVENT,AGG_TIMED_END,${ts2}`);
+      appendEventRow(21); // new event code for aggregated timed test end
+
+      Bangle.buzz();
+      stopCollection();
+    }
+  }, 1000);
+}
 
   // ------------- Streaming extra sensorer -------------
 
@@ -735,7 +765,8 @@ function startTimedTest() {
             showMainMenu();
        });
       },
-      "Local logging": () => showLoggingMenu(),
+      "Raw logging": () => showRawMenu(),
+      "Agg logging": () => showAggMenu(),
       "EMA settings": () => showEMAMenu()
     });
   }
@@ -744,15 +775,18 @@ function startTimedTest() {
     const menu = {
       "" : { title : "Sampling freq (sec)" },
       "Value" : {
-        value : settings.interval,
-        min : 5, max : 190, step : 1,
-        format : v => v + " s",
-        onchange : v => {
-          settings.interval = v;
-          storage.writeJSON("awapp.settings.json", settings);
-        }
-      },
-      "< Back" : () => { showMainMenu(); }
+      value : settings.interval,
+      min : 0,
+      max : 3600, // max 60 min
+      step : 30,
+      format : v => v + " s",
+      onchange : v => {
+        settings.interval = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
+    },
+
+      "< Back" : () => { showAggMenu(); }
     };
     E.showMenu(menu);
   }
@@ -782,12 +816,9 @@ function startTimedTest() {
     E.showMenu(menu);
   }
 
-  function showLoggingMenu() {
+  function showRawMenu() {
     E.showMenu({
-      "": { title: "Logging" },
-     
-      "Select Mode": () => selectMode(),
-
+      "": { title: "Raw logging" },
       "Ramsize": {
         value: settings.ramSize,
         min: 0,
@@ -799,16 +830,44 @@ function startTimedTest() {
           storage.writeJSON("awapp.settings.json", settings);
         }
       },
-
-      "Choose sensors": () => showSensorList(),
-      "Sampling freq": () => intervalMenu(),
       "Timed test": () => timedTest(),
-      "Start": () => startCollection(),
+      "Start": () => {
+        settings.rawMode = true;
+        storage.writeJSON("awapp.settings.json", settings);
+        startCollection();
+      },
       "Stop": () => stopCollection(),
       "< Back": () => showMainMenu()
     });
   }
 
+  function showAggMenu() {
+    E.showMenu({
+      "": { title: "Agg logging" },
+      "Ramsize": {
+        value: settings.ramSize,
+        min: 0,
+        max: 6144,
+        step: 25, //this will allow the user to increse the RAM size in steps of 25 when configuring RAM size. 
+        format: v => v + " rows",
+        onchange: v => {
+          settings.ramSize = v;
+          storage.writeJSON("awapp.settings.json", settings);
+        }
+      },
+      "Choose sensors": () => showSensorList(),
+      "Sampling freq": () => intervalMenu(),
+      "Timed test": () => timedTestAgg(),
+      "Start": () => {
+        settings.rawMode = false;
+        storage.writeJSON("awapp.settings.json", settings);
+        startCollection();
+      },
+      "Stop": () => stopCollection(),
+      "< Back": () => showMainMenu()
+    });
+  }
+        
   function timedTest(){
     E.showMenu({
       "": { title: "Timed Test" },
@@ -825,34 +884,29 @@ function startTimedTest() {
     },
       "Start timed test": () => startTimedTest(),
       "Start 6MWT" : () => startSixMWT(),
-      "< Back": () => showMainMenu()
-    });
-
-    }
-
-  function selectMode() {
-    E.showMenu({
-      "": { title: "Select mode" },
-       "Raw data": {
-      value: settings.rawMode,
-      onchange: v => {
-        settings.rawMode = true;
-        storage.writeJSON("awapp.settings.json", settings);
-        showLoggingMenu(); // uppdatera menyn visuellt
-      }
-    },
-
-    "Aggregated data": {
-      value: !settings.rawMode,
-      onchange: v => {
-        settings.rawMode = false;
-        storage.writeJSON("awapp.settings.json", settings);
-        showLoggingMenu(); // uppdatera menyn visuellt
-      }
-    },
-      "< Back": () => showLoggingMenu()
+      "< Back": () => showRawMenu()
     });
   }
+
+  function timedTestAgg(){
+    E.showMenu({
+      "": { title: "Timed Test (Agg)" },
+    "Test duration": {
+      value: settings.timedTestMinutes,
+      min: 1,
+      max: 60,
+      step: 1,
+      format: v => v + " min",
+      onchange: v => {
+        settings.timedTestMinutes = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
+    },
+      "Start timed test": () => startAggTimedTest(),
+      "< Back": () => showAggMenu()
+    });
+  }
+
 
   function showEMAMenu() {
     E.showMenu({
