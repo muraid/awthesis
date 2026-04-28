@@ -13,7 +13,8 @@
     emaEnabled: false,
     emaInterval: 3600, // seconds (1 hour default)
     rawMode: false,
-    ramSize: 50
+    ramSize: 50, //default 50 rows
+    timedTestMinutes: 6 // default 6 minutes for timed test
   };
 
   const config = {
@@ -439,6 +440,38 @@ function appendEventRow(code) {
   }, 1000);
   }
 
+  //function for timed test (default 6 minutes, configurable in menu)
+function startTimedTest() {
+  settings.rawMode = true;
+  storage.writeJSON("awapp.settings.json", settings);
+
+  let durationSec = settings.timedTestMinutes * 60;
+
+  startCollection(); // startar raw logging
+
+  let ts = Math.round(Date.now() / 1000);
+  send(`EVENT,TIMED_START,${ts}`);
+  appendEventRow(10);
+
+  Bangle.buzz();
+
+  let remaining = durationSec;
+  let timer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timer);
+
+      let ts2 = Math.round(Date.now() / 1000);
+      send(`EVENT,TIMED_END,${ts2}`);
+      appendEventRow(11);
+
+      Bangle.buzz();
+      stopCollection();
+    }
+  }, 1000);
+}
+
+
   // ------------- Streaming extra sensorer -------------
 
   Bangle.on("mag", m => {
@@ -694,23 +727,15 @@ function appendEventRow(code) {
     E.showMenu({
       "": { title: "AW app" },
       
-      "Web streaming": () => {
+      //for web app and mobile app streming 
+      "Streaming": () => {
         Bluetooth.setConsole(false);   // gör BLE till datakanal
         Terminal.setConsole(true);     // flytta REPL till skärmen
-        E.showAlert("Start web app").then(() => {
+        E.showAlert("Start streaming").then(() => {
             showMainMenu();
        });
       },
-      "App streaming": () => {
-        Bluetooth.setConsole(false);   // gör BLE till datakanal
-        Terminal.setConsole(true);     // flytta REPL till skärmen
-        E.showAlert("Start app streaming").then(() => {
-            showMainMenu();
-       });
-      },
-
       "Local logging": () => showLoggingMenu(),
-      "Timed test": () => timedTest(),
       "EMA settings": () => showEMAMenu()
     });
   }
@@ -760,7 +785,55 @@ function appendEventRow(code) {
   function showLoggingMenu() {
     E.showMenu({
       "": { title: "Logging" },
-      
+     
+      "Select Mode": () => selectMode(),
+
+      "Ramsize": {
+        value: settings.ramSize,
+        min: 0,
+        max: 6144,
+        step: 25, //this will allow the user to increse the RAM size in steps of 25 when configuring RAM size. 
+        format: v => v + " rows",
+        onchange: v => {
+          settings.ramSize = v;
+          storage.writeJSON("awapp.settings.json", settings);
+        }
+      },
+
+      "Choose sensors": () => showSensorList(),
+      "Sampling freq": () => intervalMenu(),
+      "Timed test": () => timedTest(),
+      "Start": () => startCollection(),
+      "Stop": () => stopCollection(),
+      "< Back": () => showMainMenu()
+    });
+    E.showMenu(menu);
+  }
+
+  function timedTest(){
+    E.showMenu({
+      "": { title: "Timed Test" },
+    "Test duration": {
+      value: settings.timedTestMinutes,
+      min: 1,
+      max: 60,
+      step: 1,
+      format: v => v + " min",
+      onchange: v => {
+        settings.timedTestMinutes = v;
+        storage.writeJSON("awapp.settings.json", settings);
+      }
+    },
+      "Start timed test": () => startTimedTest(),
+      "Start 6MWT" : () => startSixMWT(),
+      "< Back": () => showMainMenu()
+    });
+    E.showMenu(menu);
+  }
+
+  function selectMode() {
+    E.showMenu({
+      "": { title: "Select mode" },
        "Raw data": {
       value: settings.rawMode,
       onchange: v => {
@@ -778,48 +851,10 @@ function appendEventRow(code) {
         showLoggingMenu(); // uppdatera menyn visuellt
       }
     },
-
-    "Ramsize": {
-      value: settings.ramSize,
-      min: 0,
-      max: 6144,
-      step: 25, //this will allow the user to increse the RAM size in steps of 25 when configuring RAM size. 
-      format: v => v + " rows",
-      onchange: v => {
-        settings.ramSize = v;
-        storage.writeJSON("awapp.settings.json", settings);
-      }
-    },
-
-      "Choose sensors": () => showSensorList(),
-      "Set Interval": () => intervalMenu(),
-      "Start": () => startCollection(),
-      "Stop": () => stopCollection(),
-      "< Back": () => showMainMenu()
+      "< Back": () => showLoggingMenu()
     });
   }
 
-  function timedTest(){
-    E.showMenu({
-      "": { title: "Timed Test" },
-      //set RAM size for timed test (default 50 rows, max 6144 rows)
-      "Ramsize": {
-      value: settings.ramSize,
-      min: 0,
-      max: 6144,
-      step: 25,   // samma funktionalitet som du vill ha
-      format: v => v + " rows",
-      onchange: v => {
-        settings.ramSize = v;
-        storage.writeJSON("awapp.settings.json", settings);
-      }
-    },
-
-      "Start 6MWT" : () => startSixMWT(),
-      "< Back": () => showMainMenu()
-    });
-
-    }
   function showEMAMenu() {
     E.showMenu({
       "": { title: "EMA Settings" },
@@ -855,6 +890,7 @@ function appendEventRow(code) {
 
       "< Back": () => showMainMenu()
     });
+    E.showMenu(menu);
   }
 
   showMainMenu();
