@@ -11,7 +11,7 @@
     sensors: ["steps", "accel", "hr", "temp"], // default
     interval: 10, // seconds
     emaEnabled: false,
-    emaInterval: 3600, // seconds (1 hour default)
+    emaInterval: 1, // 1 hour default
     rawMode: false,
     ramSize: 50, //default 50 rows
     timedTestMinutes: 6 // default 6 minutes for timed test
@@ -738,7 +738,7 @@ function startAggTimedTest() {
 
     emaTimer = setInterval(() => {
       sendEMA();
-    }, settings.emaInterval * 1000); //turning seconds to ms
+    }, settings.emaInterval * 3600 * 1000); // turning hours to ms
   }
   
   function stopEMA() {
@@ -922,12 +922,12 @@ function startAggTimedTest() {
         }
       },
 
-      "Interval (sec)": {
+      "Interval (hours)": {
         value: settings.emaInterval,
-        min: 60,
-        max: 86400, //max 24h
-        step: 60,
-        format: v => v + " s",
+        min: 1,
+        max: 24, // max 24h
+        step: 1,
+        format: v => v + " h",
         onchange: v => {
           settings.emaInterval = v;
 
@@ -952,6 +952,9 @@ function startAggTimedTest() {
     let savedSettings = storage.readJSON("awapp.settings.json");
     if (savedSettings) {
       settings = Object.assign(settings, savedSettings);
+      if (settings.emaInterval > 24) {
+        settings.emaInterval = Math.max(1, Math.round(settings.emaInterval / 3600));
+      }
       if (settings.emaEnabled) {
         startEMA();
       }
