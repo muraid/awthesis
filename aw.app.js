@@ -742,7 +742,7 @@ function startTimedTest() {
 
   function intervalMenu() {
     const menu = {
-      "" : { title : "Sampling Interval (sec)" },
+      "" : { title : "Sampling freq (sec)" },
       "Value" : {
         value : settings.interval,
         min : 5, max : 190, step : 1,
