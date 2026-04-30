@@ -723,33 +723,65 @@ function startAggTimedTest() {
   });
 
   function sendEMA() {
-    if (!emaON) return;
-    E.showAlert("Get up!").then(() => {
-      showEMAMenu();
-    });
-  }
+  if (!emaON) return;
+
+  // Delay ensures buzz works even when screen is off
+  setTimeout(() => Bangle.buzz(300), 100);
+
+  E.showPrompt("Are you stressed right now?", {
+    title: "EMA",
+    buttons: { "Yes": true, "No": false }
+  }).then(answer => {
+
+    // Log or send the EMA response
+    let ts = Math.round(Date.now() / 1000);
+    if (answer === true) {
+      send(`EMA_RESPONSE,YES,${ts}`);
+      appendEventRow(100); // optional event code for YES
+    } else if (answer === false) {
+      send(`EMA_RESPONSE,NO,${ts}`);
+      appendEventRow(101); // optional event code for NO
+    } else {
+      // User dismissed the prompt (swipe/back)
+      send(`EMA_RESPONSE,NONE,${ts}`);
+      appendEventRow(102);
+    }
+
+    // Return to EMA menu
+    showEMAMenu();
+  });
+}
+
+
 
   function startEMA() {
-    if (!isAggregated) return;
-    if (emaON) return;
+  if (!isAggregated) return;
+  if (emaON) return;
 
-    emaON = true;
-    Bangle.buzz(300);
+  emaON = true;
 
-    emaTimer = setInterval(() => {
-      sendEMA();
-    }, settings.emaInterval * 3600 * 1000); // turning hours to ms
-  }
+  // Initial buzz when EMA starts
+  setTimeout(() => Bangle.buzz(300), 100);
+
+  emaTimer = setInterval(() => {
+    sendEMA();
+  }, settings.emaInterval * 3600 * 1000);
+}
+
+
   
   function stopEMA() {
-    if (!emaON) return;
-    emaON = false;
-    if (emaTimer) {
-      clearInterval(emaTimer);
-      emaTimer = null;
-    }
-    Bangle.buzz(200); //configurable to change the length of the vibration
+  if (!emaON) return;
+  emaON = false;
+
+  if (emaTimer) {
+    clearInterval(emaTimer);
+    emaTimer = null;
   }
+
+  setTimeout(() => Bangle.buzz(200), 50);
+}
+
 
   // ---------------- MENU ----------------
 
